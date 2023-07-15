@@ -1,5 +1,18 @@
 
 
+class Mesh:
+    def __init__(self) -> None:
+        pass
+
+
+
+
+class Projection:
+    def __init__(self) -> None:
+        pass
+
+
+
 
 
 class Display:
@@ -43,3 +56,10 @@ class Display:
                     output.append(frame[y][x])
             output.append("\n")
         print("".join(output))
+
+
+
+
+display = Display()
+while True:
+    pass
