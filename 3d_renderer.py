@@ -22,7 +22,10 @@ class Mesh:
             for item in obj[face_index:]:
                 # item = list(zip(*[list(map(int, value.split("/"))) for value in item[2:].split()]))
                 # output["f"].append(item[:-1]+[item[-1][0]])
-                item = [list(map(int, value.split("/"))) for value in item[2:].split()]
+                try:
+                    item = [list(map(int, value.split("/"))) for value in item[2:].split()]
+                except ValueError:
+                    item = [list(map(int, value.split("//"))) for value in item[2:].split()]
                 output["f"].append([[value[0] for value in item], [value[1] for value in item], item[0][-1]])
             return obj[0][1:], output
 
@@ -68,7 +71,7 @@ class Rendering:
             return [sum(m * v for m, v in zip(mat[row], vec)) for row in range(4)]
         tan_half_fov = math.tan(fov / 360 * math.pi)
         projection_matrix = [
-            [height / width / tan_half_fov,     0,                  0,                      0],
+            [-height / width / tan_half_fov,     0,                  0,                      0],
             [0,                                 1 / tan_half_fov,   0,                      0],
             [0,                                 0,                  -(z_far+z_near)/(z_far-z_near),   -z_near * z_far/(z_far-z_near)],
             [0,                                 0,                  -1,                     0],
@@ -79,7 +82,7 @@ class Rendering:
 
                 # Temp
                 # x, y, z, w = rotation((x, y, z, w), theta)
-                z += 0.3
+                z += -cam[2]
 
                 coor = mat4x4_x_vec4(projection_matrix, [x, y, z, w])
                 coor = [coor[0] / coor[3], coor[1] / coor[3], coor[2] / coor[3], coor[3]]
@@ -88,11 +91,6 @@ class Rendering:
                 meshes[name]["projected_v"].append(coor)
         return meshes
     
-
-    
-
-
-
 
 
 
@@ -130,58 +128,67 @@ class Display:
     
 
     def add_triangle_edges(self, meshes, color="\033[38;2;127;127;127m██\033[0m"):
+        def add_line(self, point1, point2, color):
+            point1, point2 = [int(round(point1[0], 0)), int(round(point1[1], 0))], [int(round(point2[0], 0)), int(round(point2[1], 0))]
+            if point1[0] == point2[0]:
+                for y in range(max(0, min(point1[1], point2[1])), min(self.height - 1, max(point1[1], point2[1]))):
+                    self.frame[y][int(point1[0])] = color
+            elif abs(slope := (point1[1] - point2[1]) / (point1[0] - point2[0])) <= 1:
+                for x in range(max(0, min(point1[0], point2[0])), min(self.width - 1, max(point1[0], point2[0]))):
+                    self.frame[int(slope * (x - point1[0]) + point1[1])][x] = color
+            else:
+                slope = 1 / slope
+                for y in range(max(0, min(point1[1], point2[1])), min(self.height - 1, max(point1[1], point2[1]))):
+                    self.frame[y][int(slope * (y - point1[1]) + point1[0])] = color
+        
         for mesh in meshes.values():
             for face in mesh["f"]:
-                
+                vec = [cam[index] - mesh["v"][face[0][0] - 1][index] for index in range(3)]
+                if sum([vec[index] * mesh["vn"][face[2] - 1][index] for index in range(3)]) < 0:
+                    continue
+                p1, p2, p3 = mesh["projected_v"][face[0][0] - 1], mesh["projected_v"][face[0][1] - 1], mesh["projected_v"][face[0][2] - 1]
+                add_line(self, p1, p2, color)
+                add_line(self, p2, p3, color)
+                add_line(self, p3, p1, color)
+
+
+    
+
+
+    def add_tiangle_faces(self, meshes):
+        # Adopted from the MIGHTY CHATGPT
+        def make_triangle(p1, p2, p3, color):
+            # Define the drawing area dimensions
+            width = int(max(p1[0], p2[0], p3[0]) + 1)
+            height = int(max(p1[1], p2[1], p3[1]) + 1)
+            # Function to check if a point lies inside the triangle using Barycentric coordinates
+            def is_inside(x, y):
+                denominator = ((p2[1] - p3[1]) * (p1[0] - p3[0]) + (p3[0] - p2[0]) * (p1[1] - p3[1]))
+                if denominator == 0:
+                    return False
+                alpha = ((p2[1] - p3[1]) * (x - p3[0]) + (p3[0] - p2[0]) * (y - p3[1])) / denominator
+                beta = ((p3[1] - p1[1]) * (x - p3[0]) + (p1[0] - p3[0]) * (y - p3[1])) / denominator
+                gamma = 1 - alpha - beta
+                return 0 <= alpha <= 1 and 0 <= beta <= 1 and 0 <= gamma <= 1
+
+            # Loop through the grid and set points inside the triangle to the triangle symbol ('*')
+            for y in range(height):
+                for x in range(width):
+                    if is_inside(x, y):
+                        self.frame[y][x] = color
+
+        light_vec = [0, 0, -1]
+        for mesh in meshes.values():
+            for face in mesh["f"]:
                 vec = [cam[index] - mesh["v"][face[0][0] - 1][index] for index in range(3)]
                 if sum([vec[index] * mesh["vn"][face[2] - 1][index] for index in range(3)]) <= 0:
                     continue
+                # brightness in [31, 255]
+                brightness = int((sum([light_vec[index] * mesh["vn"][face[2] - 1][index] for index in range(3)]) + 1) * 112 + 31)
+                color = f"\033[38;2;{brightness};{brightness};{brightness}m██\033[0m"
                 p1, p2, p3 = mesh["projected_v"][face[0][0] - 1], mesh["projected_v"][face[0][1] - 1], mesh["projected_v"][face[0][2] - 1]
-                Display.add_line(self, p1, p2, color)
-                Display.add_line(self, p2, p3, color)
-                Display.add_line(self, p3, p1, color)
+                make_triangle(p1, p2, p3, color)
 
-
-    def add_line(self, point1, point2, color):
-        point1, point2 = [int(round(point1[0], 0)), int(round(point1[1], 0))], [int(round(point2[0], 0)), int(round(point2[1], 0))]
-        if point1[0] == point2[0]:
-            for y in range(max(0, min(point1[1], point2[1])), min(self.height - 1, max(point1[1], point2[1]))):
-                self.frame[y][int(point1[0])] = color
-        elif abs(slope := (point1[1] - point2[1]) / (point1[0] - point2[0])) <= 1:
-            for x in range(max(0, min(point1[0], point2[0])), min(self.width - 1, max(point1[0], point2[0]))):
-                self.frame[int(slope * (x - point1[0]) + point1[1])][x] = color
-        else:
-            slope = 1 / slope
-            for y in range(max(0, min(point1[1], point2[1])), min(self.height - 1, max(point1[1], point2[1]))):
-                self.frame[y][int(slope * (y - point1[1]) + point1[0])] = color
-
-
-    # # Adopted from the MIGHTY CHATGPT
-    # def make_triangle(point_A, point_B, point_C):
-    #     # Define the drawing area dimensions
-    #     width = max(point_A[0], point_B[0], point_C[0]) + 1
-    #     height = max(point_A[1], point_B[1], point_C[1]) + 1
-
-    #     # Create a 2D grid with all points initialized to a space character
-    #     grid = [[' ' for _ in range(width)] for _ in range(height)]
-
-    #     # Function to check if a point lies inside the triangle using Barycentric coordinates
-    #     def is_inside(x, y):
-    #         denominator = ((point_B[1] - point_C[1]) * (point_A[0] - point_C[0]) + (point_C[0] - point_B[0]) * (point_A[1] - point_C[1]))
-    #         alpha = ((point_B[1] - point_C[1]) * (x - point_C[0]) + (point_C[0] - point_B[0]) * (y - point_C[1])) / denominator
-    #         beta = ((point_C[1] - point_A[1]) * (x - point_C[0]) + (point_A[0] - point_C[0]) * (y - point_C[1])) / denominator
-    #         gamma = 1 - alpha - beta
-    #         return 0 <= alpha <= 1 and 0 <= beta <= 1 and 0 <= gamma <= 1
-
-    #     # Loop through the grid and set points inside the triangle to the triangle symbol ('*')
-    #     for y in range(height):
-    #         for x in range(width):
-    #             if is_inside(x, y):
-    #                 grid[y][x] = '*'
-
-    #     # Print the grid to visualize the triangle
-    #     for row in grid:
-    #         print(''.join(row))
 
     
 
@@ -189,7 +196,7 @@ class Display:
         """frame - dict {y:{x:str}}"""
         output = []
         for y in range(self.height):
-            output.append(f"\n{y}")
+            output.append(f"\n")
             for x in range(self.width):
                 output.append(self.frame[y][x])
         print("".join(output))
@@ -200,32 +207,32 @@ def rotation(vec, theta):
         return math.sin(x /180 * math.pi)
     def cos(x):
         return math.cos(x /180 * math.pi)
-    # rotation_matrix = [[0 for _ in range(4)] for _ in range(4)]
-    # rotation_matrix[0][0] = cos(theta)
-    # rotation_matrix[0][1] = sin(theta)
-    # rotation_matrix[1][0] = -sin(theta)
-    # rotation_matrix[1][1] = cos(theta)
-    # rotation_matrix[2][2] = 1
-    # rotation_matrix[3][3] = 1
-    # vec = [sum(m * v for m, v in zip(rotation_matrix[row], vec)) for row in range(4)]
-
-    # rotation_matrix = [[0 for _ in range(4)] for _ in range(4)]
-    # rotation_matrix[0][0] = 1
-    # rotation_matrix[1][1] = cos(theta * 0.5)
-    # rotation_matrix[1][2] = sin(theta * 0.5)
-    # rotation_matrix[2][1] = -sin(theta * 0.5)
-    # rotation_matrix[2][2] = cos(theta * 0.5)
-    # rotation_matrix[3][3] = 1
-    # return [sum(m * v for m, v in zip(rotation_matrix[row], vec)) for row in range(4)]
-
     rotation_matrix = [[0 for _ in range(4)] for _ in range(4)]
     rotation_matrix[0][0] = cos(theta)
-    rotation_matrix[0][2] = sin(theta)
-    rotation_matrix[1][1] = 1
-    rotation_matrix[2][0] = -sin(theta)
-    rotation_matrix[2][2] = cos(theta)
+    rotation_matrix[0][1] = sin(theta)
+    rotation_matrix[1][0] = -sin(theta)
+    rotation_matrix[1][1] = cos(theta)
+    rotation_matrix[2][2] = 1
+    rotation_matrix[3][3] = 1
+    vec = [sum(m * v for m, v in zip(rotation_matrix[row], vec)) for row in range(4)]
+
+    rotation_matrix = [[0 for _ in range(4)] for _ in range(4)]
+    rotation_matrix[0][0] = 1
+    rotation_matrix[1][1] = cos(theta * 0.5)
+    rotation_matrix[1][2] = sin(theta * 0.5)
+    rotation_matrix[2][1] = -sin(theta * 0.5)
+    rotation_matrix[2][2] = cos(theta * 0.5)
     rotation_matrix[3][3] = 1
     return [sum(m * v for m, v in zip(rotation_matrix[row], vec)) for row in range(4)]
+
+    # rotation_matrix = [[0 for _ in range(4)] for _ in range(4)]
+    # rotation_matrix[0][0] = cos(theta)
+    # rotation_matrix[0][2] = sin(theta)
+    # rotation_matrix[1][1] = 1
+    # rotation_matrix[2][0] = -sin(theta)
+    # rotation_matrix[2][2] = cos(theta)
+    # rotation_matrix[3][3] = 1
+    # return [sum(m * v for m, v in zip(rotation_matrix[row], vec)) for row in range(4)]
 
     
 
@@ -261,21 +268,26 @@ def change_meshes():
 
 
 
-display = Display()
+display = Display(bottom_bar=2)
 
 import math
-
 from threading import Thread
+from os import system
+system("cls")
 key = None
 pause = False
 Thread(target=keyinput).start()
 theta = 0
-cam = [0, 0, -1]
+cam = [0, 0, -1.2]
 fov = 80
 meshes = {}
 # meshes = Mesh.add_to_meshes(meshes, Mesh.obj_loader("cube_tri.obj"))
-# meshes = Mesh.add_to_meshes(meshes, Mesh.obj_loader("little_desk(triangulated&integrated).mtl.obj"))
-meshes = Mesh.add_to_meshes(meshes, Mesh.obj_loader("fox.obj"))
+meshes = Mesh.add_to_meshes(meshes, Mesh.obj_loader("little_desk(triangulated&integrated).mtl.obj"))
+# meshes = Mesh.add_to_meshes(meshes, Mesh.obj_loader("fox.obj"))
+# meshes = Mesh.add_to_meshes(meshes, Mesh.obj_loader("utah_teapot.obj"))
+# meshes = Mesh.add_to_meshes(meshes, Mesh.obj_loader("spaceship.obj"))
+
+
 
 
 # Rendering.render(meshes, 70, 0.1, 100, display.width, display.height,)
@@ -283,14 +295,14 @@ meshes = Mesh.add_to_meshes(meshes, Mesh.obj_loader("fox.obj"))
 # display.draw()
 while key != "Q":
     if not pause:
-        display.new_frame()  
+        display.new_frame()
 
         meshes = change_meshes()
 
-        Rendering.render(meshes, 90, 0.01, 100, display.width, display.height,)
+        Rendering.render(meshes, 72, 0.01, 100, display.width, display.height,)
+        # display.add_tiangle_faces(meshes)
         display.add_triangle_edges(meshes)
         display.draw()
 
-        theta = 0.5
-
+        theta = 1
         pass

@@ -3,3 +3,4 @@ note
 codetest.py
 *.obj
 *.mtl
+*temp*
