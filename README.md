@@ -3,7 +3,8 @@
 ## It is a program written in pure Python aiming to render 3D objects with some very basic features.
 
 Don't ask me why, but I just decided not to use any thirdparty library. Given that it's pure python, it would be extremely slow.  
-But one thing is for sure, you can run it by simply typing ***python main.py***
+But one thing is for sure, you can run it by simply typing ***python main.py*** in your terminal.
+It may not run in some conditions for the lack of the module *mscvrt*, which enables the program to get your keyboard input so as to control the camera and others.
 
 The program runs in terminal and all images you see are text presented by print function.  
 Usually, "█" is used as it's the character that resembles a real pixel the most.  
