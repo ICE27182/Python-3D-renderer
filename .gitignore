@@ -1,6 +1,8 @@
 *.code-workspace
 note
-codetest.py
+codetest*
 *.obj
 *.mtl
 *temp*
+models
+*_OLD*
