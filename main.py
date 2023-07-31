@@ -11,7 +11,7 @@ class Mesh:
         self.f = [] if f == None else f
 
     
-    def load_obj(filename, meshes, directory=".\\models") -> dict:
+    def load_obj(filename, meshes, directory=".") -> dict:
         """Load mesh(es) from a given obj file"""
         def check_name_collision(name:str) -> str:
             if name in meshes:
@@ -326,18 +326,14 @@ def main() -> None:
     from threading import Thread
     global key, pause
     key, pause = None, False
-    step = 0.5
+    step = 0.1
     Thread(target=keyinput, daemon=True).start()
 
     meshes = {}
-    # filename = "axis.obj"
     # filename = "fox.obj"
     # filename = "cube.obj"
-    # filename = "utah_teapot.obj"
     # filename = "utpot_b.obj"
-    # filename = "little_desk(triangulated&integrated).mtl.obj"
-    # filename = "multiobjs.obj"
-    filename = "spaceship.obj"
+    filename = "little_desk(triangulated&integrated).mtl.obj"
     
     meshes.update(Mesh.load_obj(filename, meshes))
 
