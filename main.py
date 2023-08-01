@@ -122,12 +122,15 @@ class Mesh:
                       v[2] * u[0] - v[0] * u[2],
                       v[0] * u[1] - v[1] * u[0]]
             length = self.sqrt(sum([normal[index]**2 for index in range(3)]))
+            if length == 0:
+                print(f"There might be an issue with the mesh \"{self.name}\". The {self.f.index(face) + 1}th face is either a line or a point.")
+                continue
             normal = [normal[0] / length, normal[1] / length, normal[2] / length]
             if normal in self.vn:
-                face[-1] = self.vn.index(normal)
+                face[-1] = self.vn.index(normal) + 1
             else:
-                face[-1] = len(self.vn)
                 self.vn.append(normal)
+                face[-1] = len(self.vn)
 
 
 
@@ -333,23 +336,28 @@ def main() -> None:
     # filename = "fox.obj"
     # filename = "cube.obj"
     # filename = "utpot_b.obj"
-    filename = "little_desk(triangulated&integrated).mtl.obj"
-    
+    # filename = "little_desk(triangulated&integrated).mtl.obj"
+    filename = "models\\spaceship.obj"
+
     meshes.update(Mesh.load_obj(filename, meshes))
 
     display = Display(fov=50, bottom_bar_height=5)
-    cam = [0, 0, -1.5, 90, 0]
+    cam = [0, 0, -5, 90, 0]
     import math
     cam.append(calculate_camera_matrix(cam, math))
 
+    from time import time
+    frame_start_time = time()
     while True:
+        
         if not pause:
             projection(meshes, cam, z_near=0.05, z_far=100, display=display)
             display.faces(meshes, cam)
             # display.edges(meshes, culling=True, cam=cam)
 
             
-        display.bottom_bar_info = f"{display.width} {display.height}\n" + f"{cam[:5]}"
+        display.bottom_bar_info = f"resolution:{display.width} x {display.height} \nframe generation time:{(fgt:=time()-frame_start_time):.3f}s {1/fgt if fgt != 0 else -1:.3f}fps\n" + f"{cam[:5]}"
+        frame_start_time = time()
         display.draw()
         
         if key != None:
@@ -377,21 +385,21 @@ def main() -> None:
                 cam[1] -= step
                 key = None
             elif key == "8":
-                cam[4] += 1
+                cam[4] += 2
                 cam[4] = max(-90, min(90, cam[4]))
                 cam[5] = calculate_camera_matrix(cam, math)
                 key = None
             elif key == "2":
-                cam[4] -= 1
+                cam[4] -= 2
                 cam[4] = max(-90, min(90, cam[4]))
                 cam[5] = calculate_camera_matrix(cam, math)
                 key = None
             elif key == "4":
-                cam[3] += 1
+                cam[3] += 4
                 cam[5] = calculate_camera_matrix(cam, math)
                 key = None
             elif key == "6":
-                cam[3] -= 1
+                cam[3] -= 4
                 cam[5] = calculate_camera_matrix(cam, math)
                 key = None
         display.new_frame()
