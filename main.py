@@ -63,21 +63,21 @@ class Mesh:
                 if "//" in line[0]:
                     line = [[int(line[index].split("//")[0]) for index in range(len(line))], [], int(line[0].split("//")[-1])]
                     for index in range(len(line[0])):
-                        line[0][index] -= v_max
-                    line[-1] -= vn_max
+                        line[0][index] -= (v_max + 1)
+                    line[-1] -= (vn_max + 1)
                     outputs[name].f.append(line)
                 # It is supposed to be cases like "f 1/2/1 2/3/1 3/2/1", but I'm not sure if things like "f 1/2/ 2/3/ 3/2/" exist, which would be a problem
                 elif "/" in line[0]:
                     line = [list(map(int, value.split("/"))) for value in line]
                     line = [[value[0] for value in line], [value[1] for value in line], line[0][-1]]
                     for index in range(len(line[0])):
-                        line[0][index] -= v_max
-                        line[1][index] -= vt_max
-                    line[-1] -= vn_max
+                        line[0][index] -= (v_max + 1)
+                        line[1][index] -= (vt_max + 1)
+                    line[-1] -= (vn_max + 1)
                     outputs[name].f.append(line)
                 else:
                     line = list(map(int, line))
-                    line = [[val - v_max for val in line], [], None]
+                    line = [[val - v_max - 1 for val in line], [], None]
                     outputs[name].f.append(line)
             elif line[:2] == "vt":
                 vt += 1
@@ -113,66 +113,21 @@ class Mesh:
         return outputs
 
 
-    def get_normal(self):
-        self.vn = []
-        for face in self.f:
-            v = Tool.vec3_minus_vec3(self.v[face[0][1] - 1], self.v[face[0][0] - 1])
-            u = Tool.vec3_minus_vec3(self.v[face[0][2] - 1], self.v[face[0][0] - 1])
-            normal = [v[1] * u[2] - v[2] * u[1],
-                      v[2] * u[0] - v[0] * u[2],
-                      v[0] * u[1] - v[1] * u[0]]
-            length = self.sqrt(sum([normal[index]**2 for index in range(3)]))
-            if length == 0:
-                print(f"There might be an issue with the mesh \"{self.name}\". The {self.f.index(face) + 1}th face is either a line or a point.")
-                continue
-            normal = [normal[0] / length, normal[1] / length, normal[2] / length]
-            if normal in self.vn:
-                face[-1] = self.vn.index(normal) + 1
-            else:
-                self.vn.append(normal)
-                face[-1] = len(self.vn)
-
-
-
-
-def projection(meshes:dict, cam, z_near, z_far, display, w=1):
-    # Although as long as z_near, z_far and display instance don't change, projection matrix won't change, 
-    # which means it's basically a constant and don't need to be recalculate each frame, the amount of time
-    # used for the calculation is less than 10**-7 seconds (according to timeit). so whatever...
-    projection_matrix = ((-display.height / display.width / display.tan_half_fov, 0, 0, 0),
-                         (0, 1 / display.tan_half_fov, 0, 0),
-                         (0, 0, -(z_far+z_near)/(z_far-z_near), -z_near * z_far/(z_far-z_near)),
-                         (0, 0, -1, 0),)
-    for name,mesh in meshes.items():
-        meshes[name].pv = []
-        for x, y, z, in mesh.v:
-
-            x -= cam[0]
-            y -= cam[1]
-            z -= cam[2]
-
-            x, y, z = Tool.mat3_times_vec3c(cam[5], (x, y, z))
-
-            coor = Tool.mat4_times_vec4c(projection_matrix, (x, y, z, w))
-            coor = [coor[0] / coor[3], coor[1] / coor[3], coor[2] / coor[3], coor[3]]
-            coor[0] = (coor[0] + 1) * 0.5 * display.width
-            coor[1] = (coor[1] + 1) * 0.5 * display.height
-            meshes[name].pv.append(coor)
-
-
 
 
 class Display:
-    def __init__(self, fov=80, size=None, bottom_bar_height=0) -> None:
+    def __init__(self, fov=80, size=None, z_near=0.01, z_far=100, bottom_bar_height=0) -> None:
         import math
         self.ceil = math.ceil
-        self.tan_half_fov = math.tan(fov * math.pi / 360)
-        self.bottom_bar_height = bottom_bar_height
+        self.fov_trans = lambda degree : math.tan(degree * math.pi / 360)
+        self.fov = fov
         self.size = size
+        self.z_near = z_near
+        self.z_far = z_far
+        self.bottom_bar_height = bottom_bar_height
         from shutil import get_terminal_size
         self.get_terminal_size = get_terminal_size
-        self.get_screen_size()
-        self.frame = {y:{x:"  " for x in range(self.width)} for y in range(self.height)}
+        self.refresh()
 
 
     def get_screen_size(self) -> None:
@@ -190,11 +145,12 @@ class Display:
             _, h = self.get_terminal_size()
             w = self.size[0] // 2 - 3
             h = h - 3 - self.bottom_bar_height
+        else:
+            w, h = self.size
         self.width, self.height = w, h
     
 
     def new_frame(self):
-        print("\033[F" * (self.height * 2))
         self.frame = {y:{x:"  " for x in range(self.width)} for y in range(self.height)}
 
 
@@ -203,6 +159,11 @@ class Display:
         system("cls")
         self.get_screen_size()
         self.frame = {y:{x:"  " for x in range(self.width)} for y in range(self.height)}
+        tan_half_fov = self.fov_trans(self.fov)
+        self.projection_matrix = ((-self.height / self.width / tan_half_fov, 0, 0, 0),
+                         (0, 1 / tan_half_fov, 0, 0),
+                         (0, 0, -(self.z_far+self.z_near)/(self.z_far-self.z_near), -self.z_near * self.z_far/(self.z_far-self.z_near)),
+                         (0, 0, -1, 0),)
 
 
     def line(self, point1, point2, color="\033[38;2;127;127;127m██\033[0m"):
@@ -220,16 +181,6 @@ class Display:
             for y in range(max(0, min(point1[1], point2[1])), min(self.height - 1, max(point1[1], point2[1]))):
                 if 0 <= (x:=int(slope * (y - point1[1]) + point1[0])) < self.width:
                     self.frame[y][x] = color
-
-
-    def edges(self, meshes, culling=True, cam=None):
-        for mesh in meshes.values():
-            for face in mesh.f:
-                if culling and Tool.dot_product_vec3(mesh.vn[face[-1] - 1], (cam[0] - mesh.v[face[0][0] - 1][0], cam[1] - mesh.v[face[0][0] - 1][1], cam[2] - mesh.v[face[0][0] - 1][2])) <= 0:
-                    continue
-                self.line(mesh.pv[face[0][0] - 1], mesh.pv[face[0][1] - 1])
-                self.line(mesh.pv[face[0][1] - 1], mesh.pv[face[0][2] - 1])
-                self.line(mesh.pv[face[0][2] - 1], mesh.pv[face[0][0] - 1])
     
 
     def faces(self, meshes, cam):
@@ -261,6 +212,7 @@ class Display:
                 
     def draw(self):
         """frame - dict {y:{x:str}}"""
+        print("\033[F" * (self.height * 2))
         output = []
         for y in range(self.height):
             output.append(f"\n")
@@ -299,6 +251,8 @@ class Tool:
         return f"\033[38;2;{val};{val};{val}m██\033[0m"
 
 
+
+
 def calculate_camera_matrix(cam, math) -> list:
     trans = math.pi / 180
     cos_beta = math.cos(cam[4] * trans)
@@ -308,6 +262,20 @@ def calculate_camera_matrix(cam, math) -> list:
     return (( sin_alpha, 0, - cos_alpha),
             (-sin_beta * cos_alpha, cos_beta, -sin_beta * sin_alpha),
             ( cos_beta * cos_alpha, sin_beta,  cos_beta * sin_alpha),)
+
+
+
+
+def calculate_camera_matrix(cam, math) -> list:
+    trans = math.pi / 180
+    cos_beta = math.cos(cam[4] * trans)
+    cos_alpha = math.cos(cam[3] * trans)
+    sin_beta = math.sin(cam[4] * trans)
+    sin_alpha = math.sin(cam[3] * trans)
+    return (( sin_alpha, 0, - cos_alpha),
+            (-sin_beta * cos_alpha, cos_beta, -sin_beta * sin_alpha),
+            ( cos_beta * cos_alpha, sin_beta,  cos_beta * sin_alpha),)
+
 
 
 
@@ -337,29 +305,175 @@ def main() -> None:
     # filename = "cube.obj"
     # filename = "utpot_b.obj"
     # filename = "little_desk(triangulated&integrated).mtl.obj"
-    filename = "models\\spaceship.obj"
+    # filename = "models\\spaceship.obj"
+    filename = "room.obj"
+    # filename = "models\\playground.obj"
 
     meshes.update(Mesh.load_obj(filename, meshes))
 
-    display = Display(fov=50, bottom_bar_height=5)
-    cam = [0, 0, -5, 90, 0]
+    display = Display(fov=50, bottom_bar_height=5,
+                      z_near=0.01,
+                    #   size=(450, 210)
+                      )
+    cam = [4.160169099632964, 0.10697989934050023, -0.004390641488757237, 178, -2]
     import math
     cam.append(calculate_camera_matrix(cam, math))
+
+    culling = True
+    light_dir = (0, 0.5, -0.5*3**0.5)    
+    # light_dir = (0.5773502691896257, 0.5773502691896257, -0.5773502691896257)
+    max_brightnss = 255
+    min_brightness = 16
+    faces, edges = True, False
+    w = 1
 
     from time import time
     frame_start_time = time()
     while True:
-        
         if not pause:
-            projection(meshes, cam, z_near=0.05, z_far=100, display=display)
-            display.faces(meshes, cam)
-            # display.edges(meshes, culling=True, cam=cam)
 
-            
+            display.new_frame()
+            for mesh in meshes.values():
+                for face in mesh.f:
+                    # Get the three coordinates
+                    tri = [mesh.v[face[0][0]], mesh.v[face[0][1]], mesh.v[face[0][2]]]
+
+                    # culling
+                    normal = mesh.vn[face[-1]]
+                    cam_to_plane = (cam[0] - tri[0][0], cam[1] - tri[0][1], cam[2] - tri[0][2])
+                    # Dot product value and culling setting determine if faces not facing the camera should be rendered
+                    if culling and (normal[0] * cam_to_plane[0] + normal[1] * cam_to_plane[1] + normal[2] * cam_to_plane[2]) <= 0:
+                        continue
+
+                    # Change the coordinate system
+                    # Here the same points would be calculated several times as different faces may contain the same points
+                    # Will try to store them and see if it improve performance later
+                    # I don't use function here for the sake of performace
+                    tri[0] = [tri[0][0] - cam[0], tri[0][1] - cam[1], tri[0][2] - cam[2]]
+                    tri[1] = [tri[1][0] - cam[0], tri[1][1] - cam[1], tri[1][2] - cam[2]]
+                    tri[2] = [tri[2][0] - cam[0], tri[2][1] - cam[1], tri[2][2] - cam[2]]
+                    tri[0] = [cam[5][0][0] * tri[0][0] + cam[5][0][1] * tri[0][1] + cam[5][0][2] * tri[0][2],
+                              cam[5][1][0] * tri[0][0] + cam[5][1][1] * tri[0][1] + cam[5][1][2] * tri[0][2],
+                              cam[5][2][0] * tri[0][0] + cam[5][2][1] * tri[0][1] + cam[5][2][2] * tri[0][2]]
+                    tri[1] = [cam[5][0][0] * tri[1][0] + cam[5][0][1] * tri[1][1] + cam[5][0][2] * tri[1][2],
+                              cam[5][1][0] * tri[1][0] + cam[5][1][1] * tri[1][1] + cam[5][1][2] * tri[1][2],
+                              cam[5][2][0] * tri[1][0] + cam[5][2][1] * tri[1][1] + cam[5][2][2] * tri[1][2]]
+                    tri[2] = [cam[5][0][0] * tri[2][0] + cam[5][0][1] * tri[2][1] + cam[5][0][2] * tri[2][2],
+                              cam[5][1][0] * tri[2][0] + cam[5][1][1] * tri[2][1] + cam[5][1][2] * tri[2][2],
+                              cam[5][2][0] * tri[2][0] + cam[5][2][1] * tri[2][1] + cam[5][2][2] * tri[2][2]]
+                    
+                    
+                    # Light
+                    color = int(min_brightness + (max_brightnss - min_brightness) * ((normal[0] * light_dir[0] + normal[1] * light_dir[1] + normal[2] * light_dir[2]) + 1) / 2)
+                    if color == 204:
+                        raise Exception
+                    color = f"\033[38;2;{color};{color};{color}m██\033[0m"
+
+                    # Clipping
+                    inside = []
+                    outside = []
+                    # Still, not using loop because of performance
+                    if tri[0][2] >= display.z_near:
+                        inside.append(tri[0])
+                    else:
+                        outside.append(tri[0])
+                    if tri[1][2] >= display.z_near:
+                        inside.append(tri[1])
+                    else:
+                        outside.append(tri[1])
+                    if tri[2][2] >= display.z_near:
+                        inside.append(tri[2])
+                    else:
+                        outside.append(tri[2])
+                    
+                    if len(inside) == 3:
+                        pass
+                    elif len(inside) == 0:
+                        continue
+                    elif len(inside) == 1:
+                        # Compute the parameter t where the line intersects the plane
+                        t = (display.z_near - outside[0][2]) / (inside[0][2] - outside[0][2])
+                        # Calculate the intersection point
+                        inside.append((outside[0][0] + t * (inside[0][0] - outside[0][0]),
+                                       outside[0][1] + t * (inside[0][1] - outside[0][1]),
+                                       outside[0][2] + t * (inside[0][2] - outside[0][2])))
+                        # Compute the parameter t where the line intersects the plane
+                        t = (display.z_near - outside[1][2]) / (inside[0][2] - outside[1][2])
+                        # Calculate the intersection point
+                        inside.append((outside[1][0] + t * (inside[0][0] - outside[1][0]),
+                                       outside[1][1] + t * (inside[0][1] - outside[1][1]),
+                                       outside[1][2] + t * (inside[0][2] - outside[1][2])))
+                    # elif len(inside) == 2:
+                    else:
+                        # Compute the parameter t where the line intersects the plane
+                        t = (display.z_near - outside[0][2]) / (inside[0][2] - outside[0][2])
+                        # Calculate the intersection point
+                        inside.append((outside[0][0] + t * (inside[0][0] - outside[0][0]),
+                                       outside[0][1] + t * (inside[0][1] - outside[0][1]),
+                                       outside[0][2] + t * (inside[0][2] - outside[0][2])))
+                        # Compute the parameter t where the line intersects the plane
+                        t = (display.z_near - outside[0][2]) / (inside[1][2] - outside[0][2])
+                        # Calculate the intersection point
+                        inside.append((outside[0][0] + t * (inside[1][0] - outside[0][0]),
+                                       outside[0][1] + t * (inside[1][1] - outside[0][1]),
+                                       outside[0][2] + t * (inside[1][2] - outside[0][2])))
+                    for index, point in enumerate(inside):
+                        point = [display.projection_matrix[0][0] * point[0] + display.projection_matrix[0][1] * point[1] + display.projection_matrix[0][2] * point[2] + display.projection_matrix[0][3] * w,
+                                 display.projection_matrix[1][0] * point[0] + display.projection_matrix[1][1] * point[1] + display.projection_matrix[1][2] * point[2] + display.projection_matrix[1][3] * w,
+                                 display.projection_matrix[2][0] * point[0] + display.projection_matrix[2][1] * point[1] + display.projection_matrix[2][2] * point[2] + display.projection_matrix[2][3] * w,
+                                 display.projection_matrix[3][0] * point[0] + display.projection_matrix[3][1] * point[1] + display.projection_matrix[3][2] * point[2] + display.projection_matrix[3][3] * w,]
+                        point = [point[0] / point[3], point[1] / point[3], point[2] / point[3], point[3]]
+                        point[0] = (point[0] + 1) * 0.5 * display.width
+                        point[1] = (point[1] + 1) * 0.5 * display.height
+                        inside[index] = point
+                    
+                    
+                    if faces:
+                        if len(inside) == 3:
+                            for y in range(int(max(0, min(inside[0][1], inside[1][1], inside[2][1]))), int(min(display.height, max(inside[0][1], inside[1][1], inside[2][1]) + 1))):
+                                for x in range(int(max(0, min(inside[0][0], inside[1][0], inside[2][0]))), int(min(display.width, max(inside[0][0], inside[1][0], inside[2][0]) + 1))):
+                                    vec1 = (inside[0][0] - x, inside[0][1] - y)
+                                    vec2 = (inside[1][0] - x, inside[1][1] - y)
+                                    vec3 = (inside[2][0] - x, inside[2][1] - y)
+                                    cp23 = vec2[0] * vec3[1] -  vec2[1] * vec3[0]
+                                    if (vec1[0] * vec2[1] -  vec1[1] * vec2[0]) * cp23 > 0 and cp23 * (vec3[0] * vec1[1] -  vec3[1] * vec1[0]) > 0:
+                                        display.frame[y][x] = color
+                        # elif len(inside) == 4:
+                        else:
+                            for y in range(int(max(0, min(inside[0][1], inside[1][1], inside[2][1]))), int(min(display.height, max(inside[0][1], inside[1][1], inside[2][1]) + 1))):
+                                for x in range(int(max(0, min(inside[0][0], inside[1][0], inside[2][0]))), int(min(display.width, max(inside[0][0], inside[1][0], inside[2][0]) + 1))):
+                                    vec1 = (inside[0][0] - x, inside[0][1] - y)
+                                    vec2 = (inside[1][0] - x, inside[1][1] - y)
+                                    vec3 = (inside[2][0] - x, inside[2][1] - y)
+                                    cp23 = vec2[0] * vec3[1] -  vec2[1] * vec3[0]
+                                    if (vec1[0] * vec2[1] -  vec1[1] * vec2[0]) * cp23 > 0 and cp23 * (vec3[0] * vec1[1] -  vec3[1] * vec1[0]) > 0:
+                                        display.frame[y][x] = color
+                            for y in range(int(max(0, min(inside[1][1], inside[2][1], inside[3][1]))), int(min(display.height, max(inside[1][1], inside[2][1], inside[3][1]) + 1))):
+                                for x in range(int(max(0, min(inside[1][0], inside[2][0], inside[3][0]))), int(min(display.width, max(inside[1][0], inside[2][0], inside[3][0]) + 1))):
+                                    vec1 = (inside[1][0] - x, inside[1][1] - y)
+                                    vec2 = (inside[2][0] - x, inside[2][1] - y)
+                                    vec3 = (inside[3][0] - x, inside[3][1] - y)
+                                    cp23 = vec2[0] * vec3[1] -  vec2[1] * vec3[0]
+                                    if (vec1[0] * vec2[1] -  vec1[1] * vec2[0]) * cp23 > 0 and cp23 * (vec3[0] * vec1[1] -  vec3[1] * vec1[0]) > 0:
+                                        display.frame[y][x] = color
+                    if edges:
+                        if len(inside) == 3:
+                            display.line(inside[0], inside[1])
+                            display.line(inside[1], inside[2])
+                            display.line(inside[2], inside[0])
+                        # elif len(inside) == 4:
+                        else:
+                            display.line(inside[0], inside[1])
+                            display.line(inside[1], inside[2])
+                            display.line(inside[2], inside[0])
+                            display.line(inside[1], inside[3])
+                            display.line(inside[2], inside[3])
+
         display.bottom_bar_info = f"resolution:{display.width} x {display.height} \nframe generation time:{(fgt:=time()-frame_start_time):.3f}s {1/fgt if fgt != 0 else -1:.3f}fps\n" + f"{cam[:5]}"
+        display.bottom_bar_info += f"\n{sum([len(mesh.f) for mesh in meshes.values()])}Triangles"
         frame_start_time = time()
-        display.draw()
-        
+        display.draw()  
+
         if key != None:
             if key == "Q":
                 break
@@ -402,7 +516,33 @@ def main() -> None:
                 cam[3] -= 4
                 cam[5] = calculate_camera_matrix(cam, math)
                 key = None
-        display.new_frame()
+            elif key == "7":
+                display.fov += 1
+                tan_half_fov = display.fov_trans(display.fov)
+                display.projection_matrix = ((-display.height / display.width / tan_half_fov, 0, 0, 0),
+                                             (0, 1 / tan_half_fov, 0, 0),
+                                             (0, 0, -(display.z_far+display.z_near)/(display.z_far-display.z_near), -display.z_near * display.z_far/(display.z_far-display.z_near)),
+                                             (0, 0, -1, 0),)
+                key = None
+            elif key == "9":
+                display.fov -= 1
+                tan_half_fov = display.fov_trans(display.fov)
+                display.projection_matrix = ((-display.height / display.width / tan_half_fov, 0, 0, 0),
+                                             (0, 1 / tan_half_fov, 0, 0),
+                                             (0, 0, -(display.z_far+display.z_near)/(display.z_far-display.z_near), -display.z_near * display.z_far/(display.z_far-display.z_near)),
+                                             (0, 0, -1, 0),)
+                key = None
+            elif key == "5":
+                display.fov = 40
+                tan_half_fov = display.fov_trans(display.fov)
+                display.projection_matrix = ((-display.height / display.width / tan_half_fov, 0, 0, 0),
+                                             (0, 1 / tan_half_fov, 0, 0),
+                                             (0, 0, -(display.z_far+display.z_near)/(display.z_far-display.z_near), -display.z_near * display.z_far/(display.z_far-display.z_near)),
+                                             (0, 0, -1, 0),)
+                key = None
 
-main()
+        
 
+
+if __name__ == "__main__":
+    main()
