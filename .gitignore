@@ -1,6 +1,6 @@
 *.code-workspace
 note
-codetest*
+*test*
 *.mtl
 *temp*
 models
