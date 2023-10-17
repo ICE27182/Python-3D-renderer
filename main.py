@@ -464,13 +464,13 @@ def main() -> None:
     Thread(target=keyinput, daemon=True).start()
 
     meshes = {}
-    # filename = "models\\fox.obj"
     # filename = "cube.obj"
-    # filename = "utpot_b.obj"
     # filename = "little_desk(triangulated&integrated).mtl.obj"
     # filename = "models\\spaceship.obj"
-    # filename = "room.obj"
     filename = "models\\playground.obj"
+    filename = "models\\utpot_b.obj"
+    filename = "models\\fox.obj"
+    filename = "room.obj"
 
     meshes.update(Mesh.load_obj(filename, meshes))
     # meshes.update(Mesh.load_obj("cube.obj", meshes))
