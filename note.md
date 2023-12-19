@@ -39,6 +39,7 @@
 --- Start to Rasterize ---  
         - **len(inside) = 3**
             - sort three vertices  
+            - cull some vertices
             - **if solid**
                 - **if smooth_shading**
                     - rasterize (get x3d, y3d, z3d, snx, sny, snz)
@@ -47,9 +48,9 @@
                     - rasterize (get x3d, y3d, z3d, nx, ny, nz)
                         - calculate luminace
             - **if textured & normal_mapped**  
-                => flat_shading
-                    - rasterize (get x3d, y3d, z3d, u, v, color, normal)
-                        - calculate luminance
+                => flat_shading  
+                - rasterize (get x3d, y3d, z3d, u, v, color, normal)
+                    - calculate luminance
             - **if textured**
                 - **if smooth_shading**
                     - rasterize (get x3d, y3d, z3d, u, v, color, snx, sny, snz)
@@ -57,9 +58,9 @@
                 - **if flat_shading**
                     - rasterize (get x3d, y3d, z3d, u, v, color, nx, ny, nz)
                         - calculate luminace  
-            - **if normal_mapped**
+            - **if normal_mapped**  
                 => flat_shading
-                - rasterize (get x3d, y3d, z3d, u, v, color, nx, ny, nz)
+                - rasterize (get x3d, y3d, z3d, u, v, nx, ny, nz)
                     - calculate luminace  
 
 ### In terms of performance, list is the best representing coordinates

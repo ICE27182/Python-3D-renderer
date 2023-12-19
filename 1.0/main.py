@@ -281,8 +281,8 @@ def calculate_camera_matrix(cam, math) -> list:
     cos_alpha = math.cos(cam[3] * trans)
     sin_beta = math.sin(cam[4] * trans)
     sin_alpha = math.sin(cam[3] * trans)
-    return (( sin_alpha, 0, - cos_alpha),
-            (-sin_beta * cos_alpha, cos_beta, -sin_beta * sin_alpha),
+    retu n (( sin_alpha, 0, - cos_alpha),
+          (-sin_beta * cos_alpha, cos_beta, -sin_beta * sin_alpha),
             ( cos_beta * cos_alpha, sin_beta,  cos_beta * sin_alpha),)
 
 
@@ -315,14 +315,14 @@ def render(meshes, display, cam, min_brightness, max_brightnss, light_dir, culli
             tri[1] = [tri[1][0] - cam[0], tri[1][1] - cam[1], tri[1][2] - cam[2]]
             tri[2] = [tri[2][0] - cam[0], tri[2][1] - cam[1], tri[2][2] - cam[2]]
             tri[0] = [cam[5][0][0] * tri[0][0] + cam[5][0][1] * tri[0][1] + cam[5][0][2] * tri[0][2],
-                        cam[5][1][0] * tri[0][0] + cam[5][1][1] * tri[0][1] + cam[5][1][2] * tri[0][2],
-                        cam[5][2][0] * tri[0][0] + cam[5][2][1] * tri[0][1] + cam[5][2][2] * tri[0][2]]
+                      cam[5][1][0] * tri[0][0] + cam[5][1][1] * tri[0][1] + cam[5][1][2] * tri[0][2],
+                      cam[5][2][0] * tri[0][0] + cam[5][2][1] * tri[0][1] + cam[5][2][2] * tri[0][2]]
             tri[1] = [cam[5][0][0] * tri[1][0] + cam[5][0][1] * tri[1][1] + cam[5][0][2] * tri[1][2],
-                        cam[5][1][0] * tri[1][0] + cam[5][1][1] * tri[1][1] + cam[5][1][2] * tri[1][2],
-                        cam[5][2][0] * tri[1][0] + cam[5][2][1] * tri[1][1] + cam[5][2][2] * tri[1][2]]
+                      cam[5][1][0] * tri[1][0] + cam[5][1][1] * tri[1][1] + cam[5][1][2] * tri[1][2],
+                      cam[5][2][0] * tri[1][0] + cam[5][2][1] * tri[1][1] + cam[5][2][2] * tri[1][2]]
             tri[2] = [cam[5][0][0] * tri[2][0] + cam[5][0][1] * tri[2][1] + cam[5][0][2] * tri[2][2],
-                        cam[5][1][0] * tri[2][0] + cam[5][1][1] * tri[2][1] + cam[5][1][2] * tri[2][2],
-                        cam[5][2][0] * tri[2][0] + cam[5][2][1] * tri[2][1] + cam[5][2][2] * tri[2][2]]
+                      cam[5][1][0] * tri[2][0] + cam[5][1][1] * tri[2][1] + cam[5][1][2] * tri[2][2],
+                      cam[5][2][0] * tri[2][0] + cam[5][2][1] * tri[2][1] + cam[5][2][2] * tri[2][2]]
             
 
             # Clipping
