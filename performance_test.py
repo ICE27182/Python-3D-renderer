@@ -200,30 +200,28 @@ number = 10**8)
 #     g = lambda y: int(t * y + A[0] - A[1] * t)
 
 # exit()
+
+faces = [[0, 1, 2, 3, 4] for _ in range(1000)]
+facesMap = list(map(lambda face: face[0] + 10, faces))
+for face in faces:
+    face[0] += 10
+print(facesMap == faces)
 print(timeit(
 """
-z = t1 * p + t2 * q
-if z < 100:
-    z_b = z
+faces = list(map(lambda face: face[0] + 10, faces))
 """,
 """
-p = 16.3
-q = 15.2
-t1 = 0.47
-t2 = 0.53
+faces = [[0, 1, 2, 3, 4] for _ in range(1000)]
 """,
-number = 10**8) 
+number = 10**3) 
 )
 print(timeit(
 """
-if (z:=t1 * p + t2 * q) < 100:
-    z_b = z
+for face in faces:
+    face[0] += 10
 """,
 """
-p = 16.3
-q = 15.2
-t1 = 0.47
-t2 = 0.53
+faces = [[0, 1, 2, 3, 4] for _ in range(1000)]
 """,
-number = 10**8)
+number = 10**3)
 )

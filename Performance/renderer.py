@@ -1,161 +1,500 @@
-# This version of code is optimized for Readability
-# It would be easier to understand how the code works by reading the version
-# However, it would perform way worse than the version optimized for Performace
-
 # Undone part will be marked as CodeUndone
 
-import math, png
-# Check if mtl file or/and png file exist(s)
-from os.path import isfile
-# Pause to show warning
-from time import sleep
-# To duplicate the texture to uv_map
-from copy import deepcopy
+# import a few standard library for png decoding
+try:
+    import pickle
+    pickle_loaded = True
+except ModuleNotFoundError:
+    pickle_loaded = False
+    print("The standard library pickle seems to be missing." +
+          "The module will still function but without the " +
+          "capability to store or read decoded data")
+try:
+    from binascii import crc32
+    crc32_loaded = True
+except ModuleNotFoundError:
+    crc32_loaded = False
+    print("The standard library binascii seems to be missing." +
+          "The module will still function but without " +
+          "capability to do Cyclic Redundancy Check")
+except ImportError:
+    crc32_loaded = False
+    print("The fucntion crc32 in the standard library binascii seems " +
+          "to be missing. The module will still function but without " +
+          "capability to do Cyclic Redundancy Check")
+# IDAT includes Huffman and LZSS, so decompress is called to do the
+# job.
+from zlib import decompress
+# Will be needed in Png.get_all_idat_data
+from math import ceil
+
+class Png:
+    default_alpha = 0
+    grayscale_palette = {
+        1: [[0 for _ in range(3)], [255 for _ in range(3)] ],
+        2: [[255 // 3 * i for _ in range(3)] for i in range(4)], 
+        4: [[255 // 15 * i for _ in range(3)] for i in range(16)],
+    }
+    channels_lookup = (1, None, 3, 1, 2, None, 4)
+
+    def __init__(self, filename, dir="", pickle_dir="",
+                 from_pickle=True, to_pickle=True, crc=False) -> None:
+        '''
+        filename can be with or without ".png".
+        Try to load the image from a pickle file if pickle has been successfully loaded
+        and from_pickle == True.
+        If failed, it will start the decoding procedure, after which it will store the
+        self.pixels into a pickle file (only self.pixels is stored) if to_pickle == True
+        '''
+        # Decide whether to check crc
+        self.crc = crc
+        if crc == True and crc32_loaded == False:
+            self.crc = False
+            print("Cyclic Redundancy Check can not be implemented, for" +
+                  "related function is not imported successfully.")
+            
+        # Work out the paths
+        filename = filename + ".png" if filename[-4:] != ".png" else filename
+        image_path = dir + filename
+        self.name = filename
+        self.path = image_path
+        if pickle_loaded:
+            pickle_path = f"{pickle_dir}{filename[:-4]}.pickle"
+
+        # Pickle has been loaded and corresponding pickle file has been found
+        decoded = False
+        try:
+            if from_pickle:
+                with open(pickle_path, "rb") as image_pickle:
+                    self.pixels = pickle.load(image_pickle)
+                # Only self.pixels is read, whereas self.width and self.height
+                # are necessary in self.__str__ and self.display
+                with open(image_path, "rb") as image:
+                    self.bin:bytes = image.read()
+                    self.get_image_properties()
+                    if self.color_type == 3:
+                        self.get_palette()
+            # Demanded in the arguement not to load from the pickle file that 
+            # may exist
+            else:
+                self.decode(image_path)
+                decoded = True
+        # Pickle has been loaded while failing to find corresponding pickle file
+        except FileNotFoundError:
+            self.decode(image_path)
+            decoded = True
+        # Failed to load the pickle module
+        except NameError:
+            self.decode(image_path)
+            decoded = True
+        # Store the pickle file after decoding the image
+        if to_pickle == True and pickle_loaded == True and decoded:
+            with open(pickle_path, "wb") as image_pickle:
+                pickle.dump(self.pixels, image_pickle)
+
+
+    def __str__(self):
+        color_type = ("Grayscale", None, "RGB", "Indexed", "Grayscale-alpha", None, "RGB-alpha")
+        s = f"Name: {self.name}\t\tPath: {self.path}"
+        s += f"Size: {self.width} x {self.height}\n"
+        s += f"Color Type = {color_type[self.color_type]}({self.color_type})\n"
+        s += f"Channel(s): {Png.channels_lookup[self.color_type]}\n"
+        s += f"Bit Depth: {self.bit_depth}"
+        return s
+
+
+    def check_crc(image_bytes:bytes, chunk_starting_index:int) -> None:
+        """Check if the data matches the crc part. Raise Exception if not."""
+        chunk_length = Png.get_chunk_length(image_bytes, chunk_starting_index)
+        # Check if the crc value calculated according to the chunk
+        if (crc32(image_bytes[chunk_starting_index+4:chunk_starting_index+8+chunk_length]) !=
+            int.from_bytes(image_bytes[chunk_starting_index+chunk_length+8:chunk_starting_index+chunk_length+12])
+            ):
+            raise Exception("CRC Failed")
+
+
+    def get_chunk_length(image_bytes:bytes, chunk_starting_index:int) -> int:
+        return int.from_bytes(image_bytes[chunk_starting_index:chunk_starting_index+4])
+
+
+    def decode(self, image_path) -> None:
+        """
+        Take the path of the image and then read the binary before decoding it.
+        Store a list of tuples, in form of 
+        [[[r, g, b, alpha], [...], ...], [...], ...] in self.pixels
+        """
+        # Check whether crc can be carried out if it is demanded.
+        # I can write python code to do the check but since it may not
+        # be so important. So ...
+        with open(image_path, "rb") as image:
+            self.bin:bytes = image.read()
+
+        # Validation:
+        # Check whether png HEADER and IHDR chunk exist
+        if self.bin[:16] != b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR':
+            raise Exception("This is not a valid png image.")
+        
+        # Read the IHDR chunk to get the properties
+        self.get_image_properties()
+
+        # Get palette if the color type is 3
+        if self.color_type == 3:
+            self.get_palette()
+        elif self.color_type == 0 and self.bit_depth <= 4:
+            self.palette = Png.grayscale_palette[self.bit_depth]
+        
+        # Start to deal with IDAT chuck
+        bytes_rows = self.get_all_idat_data()
+        defiltered_bytes_rows = self.defilter(bytes_rows)
+        self.pixels = self.interpret_bytes_to_color(defiltered_bytes_rows)
+        
+
+    def get_image_properties(self) -> None:
+        """Get all fundamental properties of the image. Store in the instance."""
+        if self.crc == True:
+            Png.check_crc(self.bin, 8)
+
+        self.width = int.from_bytes(self.bin[16:20])
+        self.height = int.from_bytes(self.bin[20:24])
+        # Ranging in 1, 2, 4, 8, 16
+        self.bit_depth = self.bin[24]
+        # Ranging in 0, 2, 3, 4, 6
+        # 0 - Grayscale - 1 channel
+        # 2 - RGB - 3 channels 
+        # 3 - Palette - 1 channel
+        # 4 - Grayscale Alpha - 2 channels
+        # 6 - RGB Alpha - 4 channels
+        self.color_type = self.bin[25]
+        self.channels = Png.channels_lookup[self.color_type]
+        # default 0
+        self.compression_method = self.bin[26]
+        # default 0
+        self.filter_method = self.bin[27]
+        # 0 - no interlace
+        # 1 - Adam7 algorithm
+        self.interlace_method = self.bin[28]
+    
+
+    def get_palette(self) -> None:
+        """Get self.palette [[r, g, b, Png.default_alpha], [...], ...]"""
+        # Validation 
+        # Not really necessary tho
+        if b'PLTE' not in self.bin:
+            raise Exception("The image is encoded with palette while " +
+                            "it doesn't have the required chunk, \"PLTE\".")
+        
+        palette_chunk_index = self.bin.index(b'PLTE', 37) - 4
+
+        if self.crc == True:
+            Png.check_crc(self.bin, palette_chunk_index)
+
+        palette_length = Png.get_chunk_length(self.bin, palette_chunk_index)
+        palette = self.bin[palette_chunk_index+8:palette_chunk_index+8+palette_length]
+
+        self.palette = []
+        # len(palette) should always be divisible by 3
+        for color_index in range(len(palette) // 3):
+            self.palette.append([palette[color_index * 3],
+                                 palette[color_index * 3 + 1],
+                                 palette[color_index * 3 + 2],
+                                 Png.default_alpha])
+        
+
+    def get_all_idat_data(self) -> list:
+        """
+        Collect every IDAT chunk, for there may be more than one of them, and then 
+        decompress it. After that, separate them by row.
+        Return a list [b'...', ...]
+        What's worth noting is that the first byte of every row represent the filter 
+        type instead of pixel data
+        """
+        # Identify all starting indices of idat chucks since there can be multiple of them
+        idat_chunks_indices = []
+        start_finding_index = 0
+        for _ in range(self.bin.count(b'IDAT')):
+            idat_chunks_indices.append(self.bin.index(b'IDAT', start_finding_index) - 4)
+            start_finding_index = (idat_chunks_indices[-1] + 
+                                   Png.get_chunk_length(self.bin, idat_chunks_indices[-1]) +
+                                   8)
+        # Check crc
+        if self.crc == True:
+            for idat_chunk_index in idat_chunks_indices:
+                Png.check_crc(self.bin, idat_chunk_index)
+        # Merge all chunks into one bytes
+        idat_data = b''
+        for idat_chunk_index in idat_chunks_indices:
+            idat_data += self.bin[idat_chunk_index + 8 :
+                                  idat_chunk_index + 8 +
+                                  Png.get_chunk_length(self.bin,idat_chunk_index)]
+        # Decompress (Huffman & LZSS)
+        self.idat_data = decompress(idat_data)
+        # Store the data as rows [b'...', b'...', ...]
+        rows = []
+        row_length = ceil(self.width * self.channels * self.bit_depth / 8 + 1)
+        for row_num in range(self.height):
+            rows.append(self.idat_data[row_num * row_length:(row_num + 1) * row_length])
+
+        return rows
+
+                 
+    def defilter(self, rows:list,) -> list:
+        """
+        rows = [b'...', ...]
+        Return a list containing bytes. [[int, int, ...], [...], ...]
+        """
+        if self.bit_depth == 16:
+            left_distance = self.channels * 2
+        else:
+            left_distance = self.channels
+        def left_value(x) -> int:
+            """
+            return the value of the pixel left to the pixel whose 
+            x value is given, 0 if doesn't exist
+            """
+            if x - left_distance >= 0:
+                return row[x - left_distance]
+            else:
+                return 0
+        
+        def upper_value(x, y) -> int:
+            """
+            return the value of the pixel right above the pixel whose 
+            coordinate is given, 0 if doesn't exist
+            """
+            if y != 0:
+                return defiltered_bytes[y - 1][x]
+            else:
+                return 0
+
+        def upper_left_value(x, y) -> int:
+            """
+            return the value of the pixel on the upper-left to the 
+            pixel whose coordinate is given, 0 if doesn't exist
+            """
+            if x - left_distance < 0 or y == 0:
+                return 0
+            else:
+                return defiltered_bytes[y - 1][x - left_distance]
+        
+        def paeth_decide_which_pixel_to_add(x, y) -> tuple:
+            """
+            return the value of the value of a pixel, which is decided
+            by paeth method
+            """
+            l = left_value(x)
+            u = upper_value(x, y)
+            ul = upper_left_value(x, y)
+            v = u + l - ul
+            vl = abs(v - l)
+            vu = abs(v - u)
+            vul = abs(v - ul)
+            min_v = min(vl, vu, vul)
+            if min_v == vl:
+                return l
+            elif min_v == vu:
+                return u
+            else:
+                return ul
+
+        defiltered_bytes = []
+        
+        for row_index, filtered_row in enumerate(rows):
+            # None
+            if filtered_row[0] == 0:
+                defiltered_bytes.append(list(filtered_row[1:]))
+            # Sub
+            elif filtered_row[0] == 1:
+                row = []
+                for byte_index in range(len(filtered_row) - 1):
+                    row.append(
+                        (filtered_row[byte_index + 1] + left_value(byte_index) ) % 256
+                    )
+                defiltered_bytes.append(row)
+            # Up
+            elif filtered_row[0] == 2:
+                row = []
+                for byte_index in range(len(filtered_row) - 1):
+                    row.append(
+                        (
+                            filtered_row[byte_index + 1] + 
+                            upper_value(byte_index, row_index)
+                        ) % 256
+                    )
+                defiltered_bytes.append(row)
+            # Average
+            elif filtered_row[0] == 3:
+                row = []
+                for byte_index in range(len(filtered_row) - 1):
+                    row.append(
+                        (
+                            filtered_row[byte_index + 1] + 
+                            (
+                                left_value(byte_index) + 
+                                upper_value(byte_index, row_index)
+                            ) // 2
+                        ) % 256
+                    )
+                defiltered_bytes.append(row)
+            # Paeth
+            elif filtered_row[0] == 4:
+                row = []
+                for byte_index in range(len(filtered_row) - 1):
+                    row.append(
+                        (
+                            filtered_row[byte_index + 1] +
+                            paeth_decide_which_pixel_to_add(byte_index, row_index)
+                        ) % 256
+                    )
+                defiltered_bytes.append(row)
+
+        return defiltered_bytes
+    
+
+    def interpret_bytes_to_color(self, rows:list) -> list:
+        """
+        rows = [[int, int, ...], [...], ...]
+        return [[[r, g, b, a], [...], ...], [...], ...]
+        """
+        def get_digits(num:int) -> tuple:
+            if self.bit_depth == 1:
+                return tuple(map(int, format(num, "08b")))
+            elif self.bit_depth == 2:
+                return num // 64, num % 64 // 16, num % 16 // 4, num % 4
+            elif self.bit_depth == 4:
+                return num // 16, num % 16
+            elif self.bit_depth == 8:
+                return num,
+            
+        pixels = []
+        # Indexed
+        if self.color_type == 3:
+            for row in rows:
+                new_row = []
+                for byte in row:
+                    for value in get_digits(byte):
+                        new_row.append(self.palette[value])
+                pixels.append(new_row)
+        # Grayscale
+        elif self.color_type == 0:
+            for row in rows:
+                if self.bit_depth == 8 :
+                    pixels.append([[value, value, value, Png.default_alpha]
+                                   for value in row])
+                elif self.bit_depth == 16:
+                    pixels.append([
+                                    [int.from_bytes(row[i*2:i*2+2]),
+                                     int.from_bytes(row[i*2:i*2+2]),
+                                     int.from_bytes(row[i*2:i*2+2]),
+                                     Png.default_alpha]
+                                   for i in range(len(row) // 2)
+                                   ])
+                else: # elif self.bit_depth in (1, 2, 4):
+                    new_row = []
+                    for byte in row:
+                        for value in get_digits(byte):
+                            new_row.append(self.palette[value] + [Png.default_alpha])
+                    pixels.append(new_row)
+        # Grayscale with alpha
+        elif self.color_type == 4:
+            # Either 8 or 16
+            if self.bit_depth == 8:
+                for row in rows:
+                    new_row = []
+                    for byte_index in range(0, self.width * 2, 2):
+                        new_row.append([row[byte_index],
+                                        row[byte_index],
+                                        row[byte_index],
+                                        row[byte_index + 1]])
+                    pixels.append(new_row)
+            elif self.bit_depth == 16:
+                for row in rows:
+                    new_row = []
+                    for byte_index in range(0, self.width * 4, 4):
+                        v = int.from_bytes(row[byte_index : byte_index + 2])
+                        a = int.from_bytes(row[byte_index + 2: byte_index + 4])
+                        new_row.append([v, v, v, a])
+                    pixels.append(new_row)
+        # RGB-alpha
+        elif self.color_type == 6:
+            # Either 8 or 16
+            if self.bit_depth == 8:
+                for row in rows:
+                    new_row = []
+                    for byte_index in range(0, self.width * self.channels, self.channels):
+                        channels = []
+                        for channel in range(self.channels):
+                            channels.append(row[byte_index + channel])
+                        new_row.append(channels)
+                    pixels.append(new_row)
+            elif self.bit_depth == 16:
+                for row in rows:
+                    new_row = []
+                    for byte_index in range(0, self.width * self.channels * 2, self.channels * 2):
+                        channels = []
+                        for channel in range(self.channels):
+                            channels.append(
+                                            int.from_bytes(
+                                                row[byte_index + channel:
+                                                    byte_index + channel + 2]
+                                                )
+                                            )
+                        new_row.append(channels)
+                    pixels.append(new_row)
+        # RGB
+        else: # elif self.color_type  == 2:
+            # Either 8 or 16
+            if self.bit_depth == 8 or self.bit_depth==16:
+                for row in rows:
+                    new_row = []
+                    for byte_index in range(0, self.width * self.channels, self.channels):
+                        channels = []
+                        for channel in range(self.channels):
+                            channels.append(row[byte_index + channel])
+                        channels.append(Png.default_alpha)
+                        new_row.append(channels)
+                    pixels.append(new_row)
+
+            elif self.bit_depth == 16:
+                for row in rows:
+                    new_row = []
+                    for byte_index in range(0, self.width * self.channels * 2, self.channels * 2):
+                        channels = []
+                        for channel in range(self.channels):
+                            channels.append(
+                                int.from_bytes(
+                                    row[byte_index + channel:byte_index + channel + 2]
+                                )
+                            )
+                        channels.append(Png.default_alpha)
+                        new_row.append(channels)
+                    pixels.append(new_row)
+        
+        return pixels
+
+
+
+# os for clearing screen and get terminal size
+import math, os
+
 class Object:
     # objects = [<Object>, ...]
     objects = []
-    default_loading_dir = "E:/Programming/Python/Python-3D-renderer/models/"
-    default_uv_map_size = (192, 192)
-    # coordinates will be stored in lists instead of tuples so
-    # it's easier to transform an object
+    default_loading_dir = "E:\\Programming\\Python\\Python-3D-renderer\\models\\"
     v = []
-    vn = []
-    # uv coordinates will be stored in tuples because there
-    # seems to be no need to change them later
     vt = []
-
+    vn = []
     def __init__(self, name) -> None:
         self.name = name
-        self.shade_smooth = False
-        # Material instance if exists
+        self.smooth_shading = False
+        # if self.mtl exists, it is a string
         self.mtl = None
-        self.hastexture = False
-        self.hasnormal_map = False
+        self.texture = False
+        self.normal_map = False
+        # [[vA_index, vB_index, vC_index], 
+        #  [vtA_index, vtB_index, vtC_index],
+        #  vn_index,
+        #  [snvA_index, snvB_index, snvC_index]]
         self.faces = []
-        self.hidden = False
-        # if shadow == False, neither will it cast any shadow nor 
-        # any shadow will be casted on it
-        # It will be ignore during the shadow baking process right away
-        # If an object does not have uv coordinates, it will be false
-        # (because it require me to write a unwrapping function to 
-        # assign the uv coordinates, which i don't intend to)
-        self.shadow = True
-        # texture if it has one, and if it does not, the uv_map will
-        # be created according to Object.default_uv_map_size
-        self.uv_map = None
-
-
-
-    def load_obj(filename:str, dir=default_loading_dir) -> dict:
-        """
-        Load an object or objects from an obj file.
-        .obj is allowed to be missing
-        """
-        if not filename.endswith(".obj"):
-            filename += ".obj"
-        if dir != Material.default_loading_dir and not dir.endswith("/"):
-            dir += "/"
-        filepath = dir + filename
-
-        # Also, using line[...:...] may be faster than line.startswith
-        with open(filepath, "r") as obj_file:
-            # Will be added to the f value
-            convert_to_left_hand = False
-            if obj_file.readline(9) == "# Blender":
-                convert_to_left_hand = True
-            v_starting_at = len(Object.v)
-            vt_starting_at = len(Object.vt)
-            vn_starting_at = len(Object.vn)
-            for line in obj_file.readlines():
-                line = line.strip()
-                if line.startswith("#"):
-                    continue
-                elif line.startswith("mtllib "):
-                    mtl_loaded = Material.load_mtl(line[7:], dir)
-                elif line.startswith("o "):
-                    current_obejct = Object(name = line[2:])
-                    Object.objects.append(current_obejct)
-                elif line.startswith("v "):
-                    Object.v.append(list(map(float, line[2:].split())))
-                    if convert_to_left_hand:
-                        Object.v[-1][2] *= -1
-                elif line.startswith("vt "):
-                    Object.vt.append(tuple(map(float, line[3:].split())))
-                    if convert_to_left_hand:
-                        Object.vt[-1] = (Object.vt[-1][0], 1 - Object.vt[-1][1])
-                elif line.startswith("vn "):
-                    Object.vn.append(list(map(float, line[3:].split())))
-                    if convert_to_left_hand:
-                        Object.vn[-1][2] *= -1
-                elif line in ("s 1", "s on"):
-                    current_obejct.shade_smooth = True
-                elif line.startswith("usemtl ") and mtl_loaded:
-                    current_obejct.mtl = Material.materials[line[7:]]
-                elif line.startswith("f "):
-                    # v&vn
-                    if "//" in line:
-                        face = line[2:].split()
-                        face = (face[0].split("//"), face[1].split("//"), face[2].split("//"))
-                        face = [
-                            (int(face[0][0]) + v_starting_at - 1, 
-                             int(face[1][0]) + v_starting_at - 1, 
-                             int(face[2][0]) + v_starting_at - 1),
-                             None,
-                             int(face[0][1]) + vn_starting_at - 1,
-                             None,
-                        ]
-                    # v or v&vt&vn
-                    else:
-                        face = face.split()
-                        face = (face[0].split("/"), face[1].split("/"), face[2].split("/"))
-                        # v
-                        if len(face[0]) == 1:
-                            face = [
-                                (int(face[0][0]) + v_starting_at - 1, 
-                                 int(face[1][0]) + v_starting_at - 1, 
-                                 int(face[2][0]) + v_starting_at - 1),
-                                None,
-                                None,
-                                None,
-                            ]
-                        # v&vt
-                        elif len(face[0]) == 2:
-                            face = [
-                                (int(face[0][0]) + v_starting_at - 1, 
-                                 int(face[1][0]) + v_starting_at - 1, 
-                                 int(face[2][0]) + v_starting_at - 1),
-                                (int(face[0][1]) + vt_starting_at - 1, 
-                                 int(face[1][1]) + vt_starting_at - 1,
-                                 int(face[2][1]) + vt_starting_at - 1),
-                                None,
-                                None,
-                            ]
-                        # v&vt&vn
-                        else:    # elif len(face[0]) == 3:
-                            face = [
-                                (int(face[0][0]) + v_starting_at - 1, 
-                                 int(face[1][0]) + v_starting_at - 1, 
-                                 int(face[2][0]) + v_starting_at - 1),
-                                (int(face[0][1]) + vt_starting_at - 1, 
-                                 int(face[1][1]) + vt_starting_at - 1,
-                                 int(face[2][1]) + vt_starting_at - 1),
-                                int(face[0][1]) + vn_starting_at - 1,
-                                None,
-                            ]
-                    current_obejct.faces.append(face)
-
-        for obj in Object.objects:
-            if obj.shade_smooth == True:
-                obj.calculate_smooth_shading_normals()
-            if obj.mtl != None:
-                if Material.materials[obj.mtl].texture != None:
-                    obj.hastexture = True
-                    obj.uv_map = obj.mtl.texture
-                if Material.materials[obj.mtl].normal_map != None:
-                    obj.hasnormal_map = True
-            if obj.uv_map == None:
-                uv_map = 
-            obj.calculate_face_normals()
     
     
     def normalize_v3d(vector):
@@ -176,6 +515,86 @@ class Object:
 
     def vec_minus_vec_3d(v, u):
         return [v[0] - u[0], v[1] - u[1], v[2] - u[2]]
+
+
+    def load_obj(filename:str, dir=default_loading_dir) -> dict:
+        """
+        Load an object or objects from an obj file.
+        """
+        if not filename.endswith(".obj"):
+            filename += ".obj"
+        if dir != Material.default_loading_dir and not dir.endswith("\\"):
+            dir += "\\"
+        filepath = dir + filename
+
+        # Can be optimized here by rearranging the if/elif order
+        # Also, using line[...:...] may be faster than line.startswith
+        # Not tested yet
+        # Currently, it follows the order of how every group is stored in
+        # the file
+        with open(filepath, "r") as obj_file:
+            # Will be added to the f value
+            convert_to_left_hand = False
+            if obj_file.readline(9) == "# Blender":
+                convert_to_left_hand = True
+            v_starting_at = len(Object.v)
+            vt_starting_at = len(Object.vt)
+            vn_starting_at = len(Object.vn)
+            for line in obj_file.readlines():
+                line = line.strip()
+                if line.startswith("#"):
+                    continue
+                elif line.startswith("mtllib "):
+                    Material.load_mtl(line[7:], dir)
+                elif line.startswith("o "):
+                    current_obejct = Object(name = line[2:])
+                    Object.objects.append(current_obejct)
+                elif line.startswith("v "):
+                    Object.v.append(list(map(float, line[2:].split())))
+                    if convert_to_left_hand:
+                        Object.v[-1][2] *= -1
+                elif line.startswith("vt "):
+                    Object.vt.append(list(map(float, line[2:].split())))
+                    if convert_to_left_hand:
+                        Object.vt[-1][1] = 1 - Object.vt[-1][1]
+                elif line.startswith("vn "):
+                    Object.vn.append(list(map(float, line[2:].split())))
+                    if convert_to_left_hand:
+                        Object.vn[-1][2] *= -1
+                elif line in ("s 1", "s on"):
+                    current_obejct.smooth_shading = True
+                elif line.startswith("usemtl "):
+                    current_obejct.mtl = line[7:]
+                elif line.startswith("f "):
+                    # v&vn
+                    if "//" in line:
+                        face = [group for group in zip(*[vertex.split("/") for vertex in line[2:].split()])]
+                        
+                        face[0] = list(map(lambda s: int(s) + v_starting_at - 1, face[0]))
+                        face[1] = None
+                        face[2] = vn_starting_at + int(face[2][0]) - 1
+                    # v or v&vt&vn
+                    else:
+                        face = [list(group) for group in zip(*[list(map(int, vertex.split("/"))) for vertex in line[2:].split()])]
+                        # v&vt&vn
+                        if len(face) == 3:
+                            face[0] = list(map(lambda n: n + v_starting_at - 1, face[0]))
+                            face[1] = list(map(lambda n: n + vt_starting_at - 1, face[1]))
+                            face[2] = vn_starting_at + face[2][0] - 1
+                        # v
+                        else:
+                            face[0] = list(map(lambda n: n + v_starting_at - 1, face[0]))
+                            face.extend((None, None))
+                    current_obejct.faces.append(face)
+        for obj in Object.objects:
+            if obj.smooth_shading == True:
+                obj.calculate_smooth_shading_normals()
+            if obj.mtl != None:
+                if Material.materials[obj.mtl].texture != None:
+                    obj.texture = True
+                if Material.materials[obj.mtl].normal_map != None:
+                    obj.normal_map = True
+            obj.calculate_face_normals()
 
 
     def calculate_face_normals(self):
@@ -248,55 +667,54 @@ class Material(Object):
 
 
     def load_mtl(filename:str, dir:str):
-        if not isfile(dir + filename):
-            print("\033[1;31m" +
-                  "WARNING: MTL FILE NO FOUND.\n")
-            sleep(2)
-            return False
-        
-        with open(dir + filename, "r") as mtl_file:
-            for line in mtl_file.readlines():
-                if line.startswith("#"):
-                    continue
-                elif line.startswith("newmtl "):
-                    current_material = Material(line.strip()[7:])
-                elif line.startswith("map_Kd "):
-                    img = line.strip()[7:]
-                    if not isfile(img):
-                        print("\033[1;31m" +
-                            "WARNING: TEXTURE FILE NO FOUND.\n")
-                        sleep(2)
-                    else:
+        try:
+            with open(dir + filename, "r") as mtl_file:
+                print("Starts too load materials. It might take a rather long time " +
+                      "as it involves decoding images or reading large pickle files.")
+                for line in mtl_file.readlines():
+                    if line.startswith("#"):
+                        continue
+                    elif line.startswith("newmtl "):
+                        current_material = Material(line.strip()[7:])
+                    elif line.startswith("map_Kd "):
+                        img = line.strip()[7:]
                         # Absolute path
                         if "/" in img:
-                            current_material.texture = png.Png(img, "")
+                            current_material.texture = Png(line.strip()[7:])
                         # Relative path
                         else:
-                            current_material.texture = png.Png(img, dir)
-                elif line.startswith("map_Bump "):
-                    img = line.strip().split()[-1]
-                    if not isfile(img):
-                        print("\033[1;31m" +
-                            "WARNING: NORMAL MAP FILE NO FOUND.\n")
-                        sleep(2)
-                    else:
+                            current_material.texture = Png(line.strip()[7:], dir)
+                        # So it won't be out of index range when uv mapping
+                        # But indeed not the best option
+                        current_material.texture.width -= 1
+                        current_material.texture.height -= 1
+                    elif line.startswith("map_Bump "):
+                        img = line.strip().split()[-1]
                         # Absolute path
                         if "/" in img:
-                            current_material.normal_map = png.Png(img)
+                            current_material.normal_map = Png(line.strip().split()[-1])
                         # Relative path
                         else:
-                            current_material.normal_map = png.Png(img, dir)
-                # There are other informations such as ambient value, transparancy
-                # values that are not supported in the renderer (partially due to the
-                # fact that I myself don't even know what they are exactly), 
-                # so they will not be loaded
-        print("Finish loading materials.")
+                            current_material.normal_map = Png(line.strip().split()[-1], dir)
+                        
+                        # So it won't be out of index range when uv mapping
+                        # But indeed not the best option
+                        current_material.normal_map.width -= 1
+                        current_material.normal_map.height -= 1
+                    # There are other informations such as ambient value, transparancy
+                    # values that are not supported in the renderer (partially due to the
+                    # fact that I myself don't even know what they are exactly), 
+                    # so they will not be loaded
+            print("Finish loading materials.")
+        except FileNotFoundError as e:
+            print("\033[31mFailed to load the mtl File")
+            print(e, end="\033[0m\n")
 
 
 
 class Light:
     light_sources = []
-    def __init__(self, x, y, z, strength=(1, 1, 1), direction=None, type=1) -> None:
+    def __init__(self, x, y, z, strength=(1, 1, 1), type=0) -> None:
         """
         type 0 for parallel light source
         type 1 for point light source
@@ -306,27 +724,36 @@ class Light:
         self.strength = strength
         self.type = type
         if type == 0:
-            self.direction = direction
-            length = 1 / math.sqrt(self.direction[0] * self.direction[0] + 
-                                   self.direction[1] * self.direction[1] +
-                                   self.direction[2] * self.direction[2])
+            self.direction = (x, y, z)
+            length = math.sqrt(self.direction[0] ** 2 + 
+                               self.direction[1] ** 2 +
+                               self.direction[2] ** 2)
             if length != 1:
                 self.direction = (self.direction[0] / length,
                                   self.direction[1] / length,
                                   self.direction[2] / length,)
-        self.position = (x, y, z)
-        self.cam_space_position = (0, 0, 0)
-        self.hidden = False
+        else:    # type == 1
+            self.position = (x, y, z)
+            self.cam_space_position = (0, 0, 0)
         Light.light_sources.append(self)
 
 
 class Camera:
-    def __init__(self, x=0, y=0, z=0, yaw=90, pitch=0, z_near=0.1, z_far=50, fov=75) -> None:
+    def __init__(self, x=0, y=0, z=0, 
+                 yaw=90, pitch=0, roll=0,
+                 width=None, height=None,
+                 z_near=0.1, z_far=50, 
+                 fov=75) -> None:
         self.x, self.y, self.z = x, y, z
         self.z_near, self.z_far = z_near, z_far
         self.fov = fov
+        self.width = width
+        self.height = height
+        # Used in projection
+        self.fov_scalar = math.tan(fov * math.pi / 360) * 0.5
         self.yaw = 0
         self.pitch = 0
+        self.roll = 0
         self.update_rotation(yaw, pitch)
 
     
@@ -386,7 +813,7 @@ class Camera:
         
 
 
-def render(cam:Camera, width, height, projection_matrix, render_solid=False, in_lines=False, culling=True) -> list:
+def render(cam:Camera, projection_matrix, render_solid=False, in_lines=False, culling=True) -> list:
     def dot_product_v3d(v, u):
         return v[0] * u[0] + v[1] * u[1] + v[2] * u[2]
     
@@ -1532,6 +1959,8 @@ def render(cam:Camera, width, height, projection_matrix, render_solid=False, in_
             for vertex in inside:
                 cx, cy, cz, cw = mat_multiply_vec_4d(projection_matrix, (vertex[0], vertex[1], vertex[2], 1))
                 normalized_x2d, normalized_y2d, normalized_z2d = cx / cw, cy / cw, cz / cw
+                vertex[8] = width * vertex[0] / vertex[2] * cam.fov_scalar
+                vertex[9] = height * vertex[1] / vertex[2] * cam.fov_scalar
                 vertex[8], vertex[9] = int(width * (0.5 - normalized_x2d)), int(height * (0.5 + normalized_y2d))
                 # CodeUndone
                 # if 0 <= vertex[8] < width and 0 <= vertex[9] < height:
@@ -1578,38 +2007,21 @@ def display(frame):
 
 
 if __name__ == "__main__":
-    import os
     os.system("cls")
     # Object.load_obj("Furniture", "E:\Programming\Python\Python-3D-renderer\models\Furniture")
     # Object.load_obj("monkey")
     Object.load_obj("Crafting_table", "E:\Programming\Python\Python-3D-renderer\models\Crafting_table")
-    # Object.objects[-1].calculate_smooth_shading_normals()
-    # Object.objects[-1].smooth_shading = True
-    # Object.objects[-1].calculate_face_normals()
-    Light(3, 3, 3, (9, 9, 9),type=1)
+    Object.objects[-1].calculate_smooth_shading_normals()
+    Light(3, 3, 3, (9, 94, 9),type=1)
     # Light(-3, -3, -3, (1.5, 1, 1),type=0)
     # exit()
 
-    import os
-    width, height = os.get_terminal_size()
-    width = width // 2 - 3 
-    height = height - 3
+    
     # width, height = 40, 40
     cam = Camera(0, 0, -10, pitch=0)
     # cam = Camera(8.128, 3.999, -5.342, yaw=147, pitch=-22.5)
     cam = Camera(-6.328, 4.125, 3.105, yaw=-17.500, pitch=-32.500)
     cam = Camera(-4.950, 2.5, -4.950, yaw=-120, pitch=-30)
-    # Better use height/width because the variable will only be used in
-    # deciding projecttion_matrix[1][1] where it either multiplies to
-    # a value or divides a value. Multiplication, which is considered 
-    # faster, uses height / width
-    aspect_ratio_h_w = height / width
-    projection_matrix = (
-        (cam.z_near / (cam.z_near * math.tan(0.5 * cam.fov * math.pi / 180)), 0, 0, 0),
-        (0, cam.z_near / (cam.z_near * math.tan(0.5 * cam.fov * math.pi / 180) * aspect_ratio_h_w), 0, 0),
-        (0, 0, (cam.z_near + cam.z_far) / (cam.z_near - cam.z_far), 2 * cam.z_near * cam.z_far / (cam.z_near - cam.z_far)),
-        (0, 0, -1 ,0)
-    )
 
 
 
@@ -1617,7 +2029,6 @@ if __name__ == "__main__":
 
     from msvcrt import getwch
     while True:
-        # print(f"{cam.x:3f} {cam.y:.3f} {cam.z:3f} {cam.rotation}")
         frame = render(cam, width, height, projection_matrix,
                     #    in_lines=True,
                     #    culling=False,
@@ -1668,7 +2079,7 @@ if __name__ == "__main__":
             cam.z_near += 0.1
         elif key == "-":
             cam.z_near -= 0.1
-        elif key == "R":
+        elif key == "r":
             width, height = os.get_terminal_size()
             width = width // 2 - 3 
             height = height - 3

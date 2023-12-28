@@ -22,7 +22,8 @@ except ImportError:
           "capability to do Cyclic Redundancy Check")
 # IDAT includes Huffman and LZSS, so decompress is called to do the
 # job.
-from zlib import decompress
+from zlib import decompress, compress
+import zlib
 # Will be needed in Png.get_all_idat_data
 from math import ceil
 
@@ -227,7 +228,8 @@ class Png:
                                   idat_chunk_index + 8 +
                                   Png.get_chunk_length(self.bin,idat_chunk_index)]
         # Decompress (Huffman & LZSS)
-        self.idat_data = decompress(idat_data)
+        self.idat_data = zlib.decompress(idat_data)
+
         # Store the data as rows [b'...', b'...', ...]
         rows = []
         row_length = ceil(self.width * self.channels * self.bit_depth / 8 + 1)
@@ -501,8 +503,53 @@ class Png:
                 except:
                     print(f"\033[41mXX\033[0m", end="")
             print("\033[0m")
-            
- 
+
+
+    def write_as_bmp(img, path="image.bmp"):
+        """
+        Donno how to compress the idat chunk properly without 
+        writing the whole function myself and dumping the zlib
+        """
+        if not path.endswith(".bmp"):
+            path += ".bmp"
+        if isinstance(img, Png):
+            img = img.pixels
+
+        width = len(img[0])
+        height = len(img)
+        size = 54 + 4 * ceil(width/4) * height * 3
+        header = (b'BM' + 
+                  size.to_bytes(4, "little") + 
+                  (0).to_bytes(2, "little") + 
+                  (0).to_bytes(2, "little") + 
+                  (54).to_bytes(4, "little"))
+
+        dib_header = (
+            (40).to_bytes(4, "little") +
+            width.to_bytes(4, "little") + 
+            height.to_bytes(4, "little") +
+            (1).to_bytes(2, "little") +
+            (24).to_bytes(2, "little") +      # bit depth
+            (0).to_bytes(4, "little") +       # No compression
+            (0).to_bytes(4, "little") + 
+            (1).to_bytes(4, "little") +
+            (1).to_bytes(4, "little") +
+            (0).to_bytes(4, "little") +
+            (0).to_bytes(4, "little")
+        )
+        pixels = []
+        img.reverse()
+        for row in img:
+            for pixel in row:
+                pixels.append(pixel[2].to_bytes(1, 'little'))
+                pixels.append(pixel[1].to_bytes(1, 'little'))
+                pixels.append(pixel[0].to_bytes(1, 'little'))
+            pixels.append(b'\x00' * (width % 4))
+        pixels = b''.join(pixels)
+        with open(path, "wb") as image_file:
+            image_file.write(header + dib_header + b"\x00" * 6 + pixels)
+    
+
     
 def bytes_to_hex(bytes:bytes, start:int=0) -> str:
     """Take bytes type and return a string of hex in upper case, separated with space by 2 digits"""
@@ -568,8 +615,25 @@ if __name__ == "__main__":
     # img.display()
     # img = Png("palette_pirot", from_pickle=False, to_pickle=False, crc=True)
     # img.display()
-    img = Png("desktop", from_pickle=True, to_pickle=True, crc=False)
-    
-    print(img)
-    img.display()
+    # img = Png("desktop", from_pickle=True, to_pickle=True, crc=False)
+
+
+    # img = Png("Cola", from_pickle=False, to_pickle=False, crc=True)
+    # i = img.bin.index(b"IDAT") + 4
+    # # exit()
+    # img.get_all_idat_data()
+
+
+    img1 = Png("Image", from_pickle=False, to_pickle=False, crc=True)
+    img1.display()
+    from random import random as rd
+    for y in range(img1.height):
+        for x in range(img1.width):
+            img1.pixels[y][x][0] *= 1 + rd()
+            img1.pixels[y][x][0] = min(255, max(0, int(img1.pixels[y][x][0])))
+            img1.pixels[y][x][1] *= 1 + rd()
+            img1.pixels[y][x][1] = min(255, max(0, int(img1.pixels[y][x][1])))
+            img1.pixels[y][x][2] *= 1 + rd()
+            img1.pixels[y][x][2] = min(255, max(0, int(img1.pixels[y][x][2])))
+    img1.write_as_bmp()
     

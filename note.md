@@ -1,3 +1,4 @@
+<!-- 
 ## How to render?
 ### What features should my renderer possess?
 - Workability
@@ -12,23 +13,27 @@
 - Normal Map
 - Smooth Shading
 - Point Light Source
-- Anti-aliasing (FXAA)
-## How to write my code?
-### object attributes
-- v
-- vt
-- vn
-- f
-- filepath
-- id
----
-- smooth_shading
-- textured
-- normal_mapped
+- Anti-aliasing (FXAA) 
+-->
+## Objectives
+1. Modes:
+        - solid
+        - depth
+        - lines
+        - normal
+2. Parallel & Point Light Sources
+3. Support for Texture & Normal Map
+4. Support for Smooth Shading
+5. Support for Shadows
+6. Camera Control
+7. Support for screen-shot
+8. Support for high-resolution, offline, statistic rendering
+
+## Coding
 ## Rendering Procedure
 - Read .obj (and .mtl) file(s)  
 --- Enter rendering procedure ---
-- initiate z-buffer
+- initiate depth-buffer
 - **for over all objects**
     - **for over all faces (triangles) in each object**
         - substract 3 vertices by the camera coordinate
@@ -67,3 +72,91 @@
 Use Build-in List  
 ![Tuple > List > Dictionary > Class > array.array <=> collections.deque](Data_type_test_outcome.png)
 
+
+## Data
+### Object
+#### Public
+- objects               [Object, Object, ...]
+- v                     [[x, y, z], [...], ...]
+- vt                    [(u, v), (...), ...]
+- vn                    [[x, y, z], [...], ...]
+- default_loading_dir   "E:\\Programming\\Python\\Python-3D-renderer\\models\\"
+- default_uv_map_size   (INTp, INTp)
+### Private
+- name                  str
+- shade_smooth          bool
+- mtl                   Material/None
+- hastexture            bool
+- hasnormal_map         bool
+- faces                 [[(A_index:INTw, B_index:INTw, C_index:INTw), 
+                          (Auv_index:INTw, Buv_index:INTw, Cuv_index:INTw)/None, 
+                          normal_index:INTw/None,
+                          (Asn_index:INTw, Bsn_index:INTw, Csn_index:INTw)/None],
+                         [...],
+                         ...]
+- hidden                bool
+- shadow                bool
+- uv_map                [[(R, G, B), (...), ...],
+                         [...],
+                         ...]
+
+
+### Material
+#### Public
+- materials             {name:Png, ...:..., ...}
+#### Private
+- name                  str
+- texture               None/Png
+- normal_map            None/Png
+
+
+### Light
+#### Public
+- light_sources         [Light, Light, ...]
+#### Private
+- strength              (NUM, NUM, NUM)
+- type                  0/1
+- hidden                bool
+- position              (x, y, z)  
+- cam_space_position    (x, y, z)
+IF type == 1:  
+- direction             (x, y, z)  
+ENDIF  
+
+
+### Camera
+#### Private
+- x                     float
+- y                     float
+- z                     float
+- z_near                float
+- z_far                 float
+- fov                   NUM(0, 180)
+- fov_scalar            NUM(0, +inf)
+- width                 INTp
+- height                INTp
+- rotation              [[Xx, Xy, Xz],
+                         [Yx, Yy, Yz],
+                         [Zx, Zy, Zz]]
+
+### render
+- frame                 [[(R:INT[0, 255], G:INT[0, 255], B:[0, 255]), (...), ...],
+                         [...],
+                         ...]
+- depth_buffer          [[(z, u, v, obj), (...), ...],
+                         [...],
+                         ...]
+
+
+
+
+```
+if bake:
+    for light in lights:
+        if type == 0:
+            light_render()
+        else:
+            light_render
+
+
+```
