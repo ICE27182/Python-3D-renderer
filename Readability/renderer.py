@@ -9,13 +9,16 @@ import math, png
 from os.path import isfile
 # Pause to show warning
 from time import sleep
-# To duplicate the texture to uv_map
-from copy import deepcopy
+# Used to in shadow map
+from collections import deque
+
+
+
 class Object:
     # objects = [<Object>, ...]
     objects = []
     default_loading_dir = "E:/Programming/Python/Python-3D-renderer/models/"
-    default_uv_map_size = (192, 192)
+    default_uv_map_properties = (192, 192, 127, 127, 127)
     # coordinates will be stored in lists instead of tuples so
     # it's easier to transform an object
     v = []
@@ -24,8 +27,10 @@ class Object:
     # seems to be no need to change them later
     vt = []
 
+
     def __init__(self, name) -> None:
         self.name = name
+        self.faces_count = None
         self.shade_smooth = False
         # Material instance if exists
         self.mtl = None
@@ -43,7 +48,8 @@ class Object:
         # texture if it has one, and if it does not, the uv_map will
         # be created according to Object.default_uv_map_size
         self.uv_map = None
-
+        # [[x, y, z], [...], ...]
+        self.svn = []
 
 
     def load_obj(filename:str, dir=default_loading_dir) -> dict:
@@ -51,12 +57,13 @@ class Object:
         Load an object or objects from an obj file.
         .obj is allowed to be missing
         """
+        dir = dir.replace("\\", "/")
         if not filename.endswith(".obj"):
             filename += ".obj"
-        if dir != Material.default_loading_dir and not dir.endswith("/"):
+        if dir != "" and not dir.endswith("/"):
             dir += "/"
         filepath = dir + filename
-
+        print(f"Starts to load the obj file: {filename} \n(Path: {filepath})")
         # Also, using line[...:...] may be faster than line.startswith
         with open(filepath, "r") as obj_file:
             # Will be added to the f value
@@ -71,10 +78,12 @@ class Object:
                 if line.startswith("#"):
                     continue
                 elif line.startswith("mtllib "):
+                    print(f"Loading MTL file: {dir + line[7:]}")
                     mtl_loaded = Material.load_mtl(line[7:], dir)
                 elif line.startswith("o "):
                     current_obejct = Object(name = line[2:])
                     Object.objects.append(current_obejct)
+                    print(f"Loading {current_obejct.name}")
                 elif line.startswith("v "):
                     Object.v.append(list(map(float, line[2:].split())))
                     if convert_to_left_hand:
@@ -92,9 +101,9 @@ class Object:
                 elif line.startswith("usemtl ") and mtl_loaded:
                     current_obejct.mtl = Material.materials[line[7:]]
                 elif line.startswith("f "):
+                    face = line[2:].split()
                     # v&vn
-                    if "//" in line:
-                        face = line[2:].split()
+                    if "//" in face[0]:
                         face = (face[0].split("//"), face[1].split("//"), face[2].split("//"))
                         face = [
                             (int(face[0][0]) + v_starting_at - 1, 
@@ -102,11 +111,10 @@ class Object:
                              int(face[2][0]) + v_starting_at - 1),
                              None,
                              int(face[0][1]) + vn_starting_at - 1,
-                             None,
+                             [None, None, None],
                         ]
                     # v or v&vt&vn
                     else:
-                        face = face.split()
                         face = (face[0].split("/"), face[1].split("/"), face[2].split("/"))
                         # v
                         if len(face[0]) == 1:
@@ -116,7 +124,7 @@ class Object:
                                  int(face[2][0]) + v_starting_at - 1),
                                 None,
                                 None,
-                                None,
+                                [None, None, None],
                             ]
                         # v&vt
                         elif len(face[0]) == 2:
@@ -128,7 +136,7 @@ class Object:
                                  int(face[1][1]) + vt_starting_at - 1,
                                  int(face[2][1]) + vt_starting_at - 1),
                                 None,
-                                None,
+                                [None, None, None],
                             ]
                         # v&vt&vn
                         else:    # elif len(face[0]) == 3:
@@ -140,23 +148,54 @@ class Object:
                                  int(face[1][1]) + vt_starting_at - 1,
                                  int(face[2][1]) + vt_starting_at - 1),
                                 int(face[0][1]) + vn_starting_at - 1,
-                                None,
+                                [None, None, None],
                             ]
                     current_obejct.faces.append(face)
 
+        print("Finish loading from files. Starts to post-process the object(s) loaded.")
+
+        # So far, hastexture and hasnormal_map are all False, which will
+        # be determined in the next step.
+        # shadow is True by default, but will be disabled if the object
+        # does not have uv coordinates, which should be created by
+        # means like unwrapping in blender in advance.
+        obj:Object    # CodeUndone 
         for obj in Object.objects:
+            obj.faces_count = len(obj.faces)
+            obj.calculate_face_normals()
             if obj.shade_smooth == True:
                 obj.calculate_smooth_shading_normals()
+            # If the object does not have uv coordinates, none of
+            # shadow, texture or normal map will apply
+            if obj.faces[0][1] == None:
+                obj.shadow = False
+                continue
             if obj.mtl != None:
-                if Material.materials[obj.mtl].texture != None:
+                if obj.mtl.texture != None:
                     obj.hastexture = True
-                    obj.uv_map = obj.mtl.texture
+                    obj.uv_map = png.Png(obj.mtl.texture_path, "", to_pickle=False).pixels
                 if Material.materials[obj.mtl].normal_map != None:
                     obj.hasnormal_map = True
+            # No texture, create one
             if obj.uv_map == None:
-                uv_map = 
-            obj.calculate_face_normals()
+                obj.uv_map = [
+                    [Object.default_uv_map_properties[2:]] * 
+                    Object.default_uv_map_properties[0]
+                    for _ in range(Object.default_uv_map_properties[1])
+                ]
+        print("Obj loading done")
     
+
+    def __str__(self):
+        return (
+            f"Name: {self.name}\n" + 
+            f"Faces Count: {self.faces_count}\n" +
+            f"Has Texture: {self.hastexture}\n" +
+            f"Texture Path: {self.mtl.texture_path}\n" if self.hastexture else "" +
+            f"Has Normal Map:{self.hasnormal_map}\n" 
+            f"Normal Map Path: {self.mtl.normal_map_path}\n" if self.hasnormal_map else ""
+        )
+
     
     def normalize_v3d(vector):
         # May be about left/right hand coordinate sys?
@@ -179,6 +218,10 @@ class Object:
 
 
     def calculate_face_normals(self):
+        """
+        Check whether obj.faces stores the normal or not
+        If not, it will go over every face and calculate the normal
+        """
         if self.faces[0][2] != None:
             return
         for face in self.faces:
@@ -204,38 +247,35 @@ class Object:
 
     def calculate_smooth_shading_normals(self):
         """
+        Check if obj.faces stores normals or not. Calculate the normal values first
+        if it does not include them.
         Average all normals on each vertex, stored in self.svn and self.faces[:][3]
         """
         def average_many_vectors_v3d(vectors):
-            vectors = map(lambda ele: Object.vn[ele[0]], vectors)
-            transformed_vecs = tuple(zip(*vectors))
+            # transformed_vecs = [(x1, x2, ...), (y1, y2, ...), (z1, z2, ...)]
+            transformed_vecs = tuple(zip(*tuple(zip(*vectors))[0]))
             return Object.normalize_v3d((sum(transformed_vecs[0]), sum(transformed_vecs[1]), sum(transformed_vecs[2])))
         if self.faces[0][2] == None:
             self.calculate_face_normals()
-        # v_vn = {v: [vn, vn, ...], v: ..., ...}
-        self.svn = []
-        if len(self.faces[0]) == 3:
-            # CodeUndone 
-            # map lambda +
-            # or
-            # for extend
-            self.faces = list(map(lambda face: face + [[0, 0, 0]], self.faces))
+        # v_vn = {v: [([nx, ny, nz], face_index, vertex_index_in_a_face), (...)], 
+        #         v: [(...), ...], 
+        #         ...}
         v_vn = {}
         for findex, face in enumerate(self.faces):
             for i in (0, 1, 2):
                 if face[0][i] in v_vn:
-                    v_vn[face[0][i]].append((face[2], findex, i))
+                    v_vn[face[0][i]].append((Object.vn[face[2]], findex, i))
                 else:
-                    v_vn[face[0][i]] = [(face[2], findex, i)]
+                    v_vn[face[0][i]] = [(Object.vn[face[2]], findex, i)]
         for vns in v_vn.values():
             avg = average_many_vectors_v3d(vns)
-            self.svn.append(avg)
             for vn_fi_i in vns:
-                self.faces[vn_fi_i[1]][3][vn_fi_i[2]] = len(self.svn) - 1
+                self.faces[vn_fi_i[1]][3][vn_fi_i[2]] = len(self.svn)
+            self.svn.append(avg)
             
 
 
-class Material(Object):
+class Material:
     materials = {}
     def __init__(self, name):
         self.name = name
@@ -245,6 +285,8 @@ class Material(Object):
             Material.materials[name] = self
         self.texture = None
         self.normal_map = None
+        self.texture_path = None
+        self.normal_map_path = None
 
 
     def load_mtl(filename:str, dir:str):
@@ -262,62 +304,111 @@ class Material(Object):
                     current_material = Material(line.strip()[7:])
                 elif line.startswith("map_Kd "):
                     img = line.strip()[7:]
-                    if not isfile(img):
-                        print("\033[1;31m" +
-                            "WARNING: TEXTURE FILE NO FOUND.\n")
-                        sleep(2)
+                    # Absolute path
+                    if "/" in img:
+                        if not isfile(img):
+                            print("\033[1;31m" +
+                                "WARNING: TEXTURE FILE NO FOUND.\n")
+                            sleep(2)
+                        else:
+                            # CodeUndone The line can be delete
+                            # current_material.texture = png.Png(img, "")
+                            # store the image in pickle
+                            png.Png(img, "")
+                            current_material.texture_path = img
+                    # Relative path
                     else:
-                        # Absolute path
-                        if "/" in img:
-                            current_material.texture = png.Png(img, "")
-                        # Relative path
+                        if not isfile(dir + img):
+                            print("\033[1;31m" +
+                                "WARNING: TEXTURE FILE NO FOUND.\n")
+                            sleep(2)
                         else:
                             current_material.texture = png.Png(img, dir)
+                            current_material.texture_path = dir + img
+                    
                 elif line.startswith("map_Bump "):
                     img = line.strip().split()[-1]
-                    if not isfile(img):
-                        print("\033[1;31m" +
-                            "WARNING: NORMAL MAP FILE NO FOUND.\n")
-                        sleep(2)
-                    else:
-                        # Absolute path
-                        if "/" in img:
+                    # Absolute path
+                    if "/" in img:
+                        if not isfile(img):
+                            print("\033[1;31m" +
+                                "WARNING: NORMAL MAP FILE NO FOUND.\n")
+                            sleep(2)
+                        else:
                             current_material.normal_map = png.Png(img)
-                        # Relative path
+                            current_material.normal_map_path = img
+                    # Relative path
+                    else:
+                        if not isfile(dir + img):
+                            print("\033[1;31m" +
+                                "WARNING: NORMAL MAP FILE NO FOUND.\n")
+                            sleep(2)
                         else:
                             current_material.normal_map = png.Png(img, dir)
+                            current_material.normal_map_path = dir + img
                 # There are other informations such as ambient value, transparancy
                 # values that are not supported in the renderer (partially due to the
                 # fact that I myself don't even know what they are exactly), 
                 # so they will not be loaded
         print("Finish loading materials.")
+        return True
 
 
 
 class Light:
     light_sources = []
+    # (width, height, z_near, z_far, fxaa)
+    default_shadow_properties = (256, 256, 0.1, 50, True)
     def __init__(self, x, y, z, strength=(1, 1, 1), direction=None, type=1) -> None:
         """
         type 0 for parallel light source
         type 1 for point light source
-        if type 0, xyz is the direction of the light
-        if type 1, xyz is the position of the light source
+        direction is necessary if type == 0. 
+        direction should be in the format of (x, y, z) or [x, y, z]
         """
-        self.strength = strength
         self.type = type
-        if type == 0:
-            self.direction = direction
-            length = 1 / math.sqrt(self.direction[0] * self.direction[0] + 
-                                   self.direction[1] * self.direction[1] +
-                                   self.direction[2] * self.direction[2])
-            if length != 1:
-                self.direction = (self.direction[0] / length,
-                                  self.direction[1] / length,
-                                  self.direction[2] / length,)
+        self.strength = strength
         self.position = (x, y, z)
-        self.cam_space_position = (0, 0, 0)
+        if type == 0:
+            if direction == None:
+                raise Exception("direction is missing. "+ 
+                                "It is required for parallel light source.")
+            self.direction = tuple(direction)
+            inversed_length = 1 / math.sqrt(self.direction[0] * self.direction[0] + 
+                                            self.direction[1] * self.direction[1] +
+                                            self.direction[2] * self.direction[2])
+            if inversed_length != 1:
+                self.direction = (self.direction[0] * inversed_length,
+                                  self.direction[1] * inversed_length,
+                                  self.direction[2] * inversed_length,)
+        self.cam_space_position = None
         self.hidden = False
-        Light.light_sources.append(self)
+    
+
+    def add_light(x, y, z, strength=(1, 1, 1), direction=None, type=1):
+        Light.light_sources.append(Light(x, y, z, strength, direction, type))
+
+    
+    def add_shadows():
+        light: Light    # CodeUndone Just for VsCode
+        for light in Light.light_sources:
+            if light.type == 0:
+                Light.cast_shadow(Light.bake_shadow_parallel(light))
+            elif light.type == 1:
+                Light.cast_shadow(Light.bake_shadow_point(light)) 
+
+
+    def bake_shadow_point(light) -> tuple:
+        return
+    
+
+    def bake_shadow_parallel(light) -> tuple:
+        return
+    
+
+    def cast_shadow(shadow_map, uv_distance) -> None:
+        pass
+
 
 
 class Camera:
@@ -383,7 +474,30 @@ class Camera:
             (0, 0, 1)
         )
         self.rotation = Camera.mat_multi_mat_3d(self.rotation, r_mat,)
-        
+
+
+
+class Scene:
+    objects = []
+    light_sources = []
+    def __init__(self) -> None:
+        import os
+        print("\033[0m")
+        os.system("cls")
+        self.cam = Camera()
+        self.width, self.height = self.get_screen_size()
+    
+
+    def get_screen_size(self, width_reserved=3, height_reserved=3) -> tuple:
+        import os
+        width, height = os.get_terminal_size()
+        return width // 2 - width_reserved, height - height_reserved
+
+
+    def add_light(self, x, y, z, strength=(1, 1, 1), direction=None, type=1):
+        Light.light_sources.append(Light(x, y, z, strength, direction, type))
+    
+
 
 
 def render(cam:Camera, width, height, projection_matrix, render_solid=False, in_lines=False, culling=True) -> list:
@@ -1578,6 +1692,13 @@ def display(frame):
 
 
 if __name__ == "__main__":
+    Object.load_obj("Crafting_table", "E:\Programming\Python\Python-3D-renderer\models\Crafting_table")
+    pass
+    
+    exit()
+    scene = Scene()
+    scene.load_obj("Crafting_table", )
+    scene.add_light(3, 3, 3, (9, 9, 9))
     import os
     os.system("cls")
     # Object.load_obj("Furniture", "E:\Programming\Python\Python-3D-renderer\models\Furniture")

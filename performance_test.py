@@ -184,7 +184,6 @@ D = (1.0, 2.0)
 """,
 number = 10**8)
 )
-'''
 
 
 # if A[1] == C[1]:
@@ -225,3 +224,71 @@ faces = [[0, 1, 2, 3, 4] for _ in range(1000)]
 """,
 number = 10**3)
 )
+
+l = [([0, 1, 2], 91, 81), ([3, 4, 5,], 92, 82), ([6, 7, 8], 93, 83), ([9, 10, 11], 94, 85)]
+print(tuple(map(lambda item: item[0], l)))
+print(tuple(zip(*tuple(zip(*l))[0])))
+# exit()
+# 1.2452824999927543
+print(timeit(
+"""
+tuple(map(lambda item: item[0], l))
+""",
+"""
+l = [([0, 1, 2], 91, 81), ([3, 4, 5,], 92, 82), ([6, 7, 8], 93, 83), ([9, 10, 11], 94, 85)]
+""",
+number=10**6
+))
+
+# 1.1478829000261612
+print(timeit(
+"""
+tuple(zip(*l))[0]
+""",
+"""
+l = [([0, 1, 2], 91, 81), ([3, 4, 5,], 92, 82), ([6, 7, 8], 93, 83), ([9, 10, 11], 94, 85)]
+""",
+number=10**6
+))
+
+# 2.3158868000027724
+print(timeit(
+"""
+tuple(zip(*tuple(zip(*l))[0]))
+""",
+"""
+l = [([0, 1, 2], 91, 81), ([3, 4, 5,], 92, 82), ([6, 7, 8], 93, 83), ([9, 10, 11], 94, 85)]
+""",
+number=10**6
+))
+'''
+import Readability.png as png
+from copy import deepcopy
+texture0 = png.Png("texture", "", from_pickle=False, to_pickle=False).pixels
+print(png.Png("texture", "").pixels == deepcopy(texture0))
+
+# 0.9501629999722354
+print(timeit(
+"""
+texture = png.Png("texture", "", from_pickle=False, to_pickle=False).pixels
+""",
+"""
+import Readability.png as png
+texture0 = png.Png("texture", "", from_pickle=False, to_pickle=False).pixels
+""",
+number = 10
+))
+
+# 3.509561200044118
+print(timeit(
+"""
+texture = deepcopy(texture0)
+""",
+"""
+import Readability.png as png
+from copy import deepcopy
+texture0 = png.Png("texture", "", from_pickle=False, to_pickle=False).pixels
+""",
+number = 10
+))
+

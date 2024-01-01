@@ -738,6 +738,7 @@ class Light:
         Light.light_sources.append(self)
 
 
+
 class Camera:
     def __init__(self, x=0, y=0, z=0, 
                  yaw=90, pitch=0, roll=0,
@@ -810,8 +811,16 @@ class Camera:
             (0, 0, 1)
         )
         self.rotation = Camera.mat_multi_mat_3d(self.rotation, r_mat,)
-        
 
+
+
+def bake_shadow(light:Light):
+    return 
+
+
+def cast_shadow(shadow_map):
+    return
+    
 
 def render(cam:Camera, projection_matrix, render_solid=False, in_lines=False, culling=True) -> list:
     def dot_product_v3d(v, u):

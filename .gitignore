@@ -1,8 +1,10 @@
 *.code-workspace
-note
 *test*
-*.mtl
 *temp*
-models
+chopping_board.py
 *_OLD*
 !performance_test.py
+*.pickle
+*.blender
+**/__pycache__/
+desktop.png

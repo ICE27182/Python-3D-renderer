@@ -84,6 +84,7 @@ Use Build-in List
 - default_uv_map_size   (INTp, INTp)
 ### Private
 - name                  str
+- faces_count           INTp
 - shade_smooth          bool
 - mtl                   Material/None
 - hastexture            bool
@@ -99,6 +100,7 @@ Use Build-in List
 - uv_map                [[(R, G, B), (...), ...],
                          [...],
                          ...]
+- svn                   [[x, y, z], [...], ...]
 
 
 ### Material
@@ -106,9 +108,10 @@ Use Build-in List
 - materials             {name:Png, ...:..., ...}
 #### Private
 - name                  str
-- texture               None/Png
+<!-- - texture               None/Png -->
 - normal_map            None/Png
-
+- texture_path          None/str
+- normal_map_path       None/str
 
 ### Light
 #### Public
@@ -119,6 +122,8 @@ Use Build-in List
 - hidden                bool
 - position              (x, y, z)  
 - cam_space_position    (x, y, z)
+- z_near                float
+- z_far                 float
 IF type == 1:  
 - direction             (x, y, z)  
 ENDIF  
@@ -138,6 +143,14 @@ ENDIF
 - rotation              [[Xx, Xy, Xz],
                          [Yx, Yy, Yz],
                          [Zx, Zy, Zz]]
+
+
+
+### Scene
+#### Private
+
+
+
 
 ### render
 - frame                 [[(R:INT[0, 255], G:INT[0, 255], B:[0, 255]), (...), ...],

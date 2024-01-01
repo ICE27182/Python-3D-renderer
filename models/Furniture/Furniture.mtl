@@ -1,0 +1,14 @@
+# Blender 3.6.4 MTL File: 'Furniture.blend'
+# www.blender.org
+
+newmtl Bookshelf
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Kd E:/Programming/Python/Python-3D-renderer/models/Furniture/Bookshelf_BaseColor.png
+map_Ns E:/Programming/Python/Python-3D-renderer/models/Furniture/Bookshelf_Roughness.png
+map_refl E:/Programming/Python/Python-3D-renderer/models/Furniture/Bookshelf_Metallic.png
+map_Bump -bm 1.000000 E:/Programming/Python/Python-3D-renderer/models/Furniture/Bookshelf_Normal.png
