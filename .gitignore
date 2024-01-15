@@ -8,3 +8,4 @@ chopping_board.py
 *.blender
 **/__pycache__/
 desktop.png
+.vscode

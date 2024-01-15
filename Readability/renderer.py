@@ -5,6 +5,7 @@
 # Undone part will be marked as CodeUndone
 
 import math, png
+png.Png.default_dir = ""
 # Check if mtl file or/and png file exist(s)
 from os.path import isfile
 # Pause to show warning
@@ -110,7 +111,7 @@ class Object:
                              int(face[1][0]) + v_starting_at - 1, 
                              int(face[2][0]) + v_starting_at - 1),
                              None,
-                             int(face[0][1]) + vn_starting_at - 1,
+                             int(face[0][2]) + vn_starting_at - 1,
                              [None, None, None],
                         ]
                     # v or v&vt&vn
@@ -147,7 +148,7 @@ class Object:
                                 (int(face[0][1]) + vt_starting_at - 1, 
                                  int(face[1][1]) + vt_starting_at - 1,
                                  int(face[2][1]) + vt_starting_at - 1),
-                                int(face[0][1]) + vn_starting_at - 1,
+                                int(face[0][2]) + vn_starting_at - 1,
                                 [None, None, None],
                             ]
                     current_obejct.faces.append(face)

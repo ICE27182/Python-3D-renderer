@@ -37,8 +37,9 @@ class Png:
         4: [[255 // 15 * i for _ in range(3)] for i in range(16)],
     }
     channels_lookup = (1, None, 3, 1, 2, None, 4)
+    default_dir = "./"
 
-    def __init__(self, filename, dir=".\\pics\\", pickle_dir="",
+    def __init__(self, filename, dir=None, pickle_dir="",
                  from_pickle=True, to_pickle=True, crc=False) -> None:
         '''
         filename can be with or without ".png".
@@ -47,6 +48,8 @@ class Png:
         If failed, it will start the decoding procedure, after which it will store the
         self.pixels into a pickle file (only self.pixels is stored) if to_pickle == True
         '''
+        if dir == None:
+            dir = Png.default_dir
         # Decide whether to check crc
         self.crc = crc
         if crc == True and crc32_loaded == False:
@@ -582,6 +585,7 @@ def print_bytes(bytes:bytes, start:int=0, group_size:int=4) -> None:
 
 
 if __name__ == "__main__":
+    Png.default_dir = "./pics/"
     # img = Png("16bit", from_pickle=False, to_pickle=False, crc=True)
     # img.display()
     # img = Png("white_and_black_plet", from_pickle=False, to_pickle=False, crc=True)

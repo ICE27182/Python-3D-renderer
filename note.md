@@ -81,7 +81,7 @@ Use Build-in List
 - vt                    [(u, v), (...), ...]
 - vn                    [[x, y, z], [...], ...]
 - default_loading_dir   "E:\\Programming\\Python\\Python-3D-renderer\\models\\"
-- default_uv_map_size   (INTp, INTp)
+- default_uv_map_size   (INTp, R, G, B)
 ### Private
 - name                  str
 - faces_count           INTp
@@ -117,16 +117,29 @@ Use Build-in List
 #### Public
 - light_sources         [Light, Light, ...]
 #### Private
-- strength              (NUM, NUM, NUM)
+<!-- - strength              (NUM, NUM, NUM)
+- position              (x, y, z)  
+- direction             None/(x, y, z)
+- cam_space_position    (x, y, z) -->
+- x                     float
+- y                     float
+- z                     float
+- dirx                  float
+- diry                  float
+- dirz                  float
+- r                     INT[0, 255]
+- g                     INT[0, 255]
+- b                     INT[0, 255]
+- x_in_cam              float
+- y_in_cam              float
+- z_in_cam              float
+- dirx_in_cam           float
+- diry_in_cam           float
+- dirz_in_cam           float
 - type                  0/1
 - hidden                bool
-- position              (x, y, z)  
-- cam_space_position    (x, y, z)
 - z_near                float
 - z_far                 float
-IF type == 1:  
-- direction             (x, y, z)  
-ENDIF  
 
 
 ### Camera
@@ -134,12 +147,18 @@ ENDIF
 - x                     float
 - y                     float
 - z                     float
+- yaw                   float
+- pitch                 float
+- roll                  float
 - z_near                float
 - z_far                 float
 - fov                   NUM(0, 180)
-- fov_scalar            NUM(0, +inf)
+<!-- - fov_scalar            NUM(0, +inf) -->
 - width                 INTp
 - height                INTp
+- fxaa                  bool
+- obj_buffer            bool
+- rendering_plane_z     float
 - rotation              [[Xx, Xy, Xz],
                          [Yx, Yy, Yz],
                          [Zx, Zy, Zz]]

@@ -7,8 +7,8 @@ if __name__ == "__main__":
     Object.load_obj("Furniture", "E:\Programming\Python\Python-3D-renderer\models\Furniture")
     # Object.load_obj("monkey")
     # Object.load_obj("Crafting_table", "E:\Programming\Python\Python-3D-renderer\models\Crafting_table")
-    Object.objects[-1].calculate_smooth_shading_normals()
-    Object.objects[-1].smooth_shading = True
+    # Object.objects[-1].calculate_smooth_shading_normals()
+    # Object.objects[-1].smooth_shading = True
     # Object.objects[-1].calculate_face_normals()
     Light(-2, 3, 2, (9, 6, 6), type=1)
     # Light(-3, 0, 3, (0, 8, 18), type=1)
