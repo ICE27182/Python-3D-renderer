@@ -1,0 +1,41 @@
+How to render?
+
+Input
+
+cam
+
+Mesh
+
+projection
+    projection matrix
+        fov
+        width & height
+        z_far & z_near
+
+Display
+    rasterization
+        triangle_edges
+        triangle
+
+
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a----         7/15/2023  11:07 PM            233 cube_tri.mtl
+-a----         7/29/2023   4:22 PM           1019 cube_tri.obj
+-a----         7/19/2023   9:03 PM          82681 fox.obj
+-a----         7/19/2023   4:37 PM           4055 little_desk(triangulated&integrated).mtl.obj
+-a----         7/29/2023   5:26 PM             51 monkey.mtl
+-a----         7/29/2023   5:26 PM          86177 monkey.obj
+-a----         7/29/2023  11:06 PM            233 multiobjs.mtl
+-a----         7/29/2023  11:06 PM          10280 multiobjs.obj
+-a----         7/29/2023   5:36 PM             51 spaceship.mtl
+-a----         7/29/2023   5:36 PM           4966 spaceship.obj
+-a----         7/19/2023   8:54 PM            325 tree.mtl
+-a----         7/19/2023   8:54 PM          11218 tree.obj
+-a----         7/29/2023   4:33 PM         296438 utah_teapot.obj
+
+warning: in the working copy of 'cube.obj', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'little_desk(triangulated&integrated).mtl.obj', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'utpot_b.obj', LF will be replaced by CRLF the next time Git touches it

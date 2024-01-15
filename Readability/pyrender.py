@@ -67,6 +67,7 @@ class Object:
         self.face_count = None
         self.shade_smooth = False
         self.shadow = True
+        self.hidden = False
         self.hastexture = False
         self.hasnormal_map = False
     
@@ -74,6 +75,7 @@ class Object:
     def __str__(self):
         return (f"{self.name} | {self.face_count} faces | "
                 f"Shading {'smooth' if self.shade_smooth else 'flat'}")
+
 
     def load_obj(self, file:str, dir:str=None):
         """
@@ -613,17 +615,16 @@ def render(objects:list, lights:list, cam:Camera):
         
 
     def rasterize_solid(A, B, C, normal):
+        # Sorting by y, from lowest to highest in value but from top to bottom in what u see
         if A[9] > B[9]:
             A, B = B, A
         if B[9] > C[9]:
             B, C = C, B
         if A[9] > B[9]:
             A, B = B, A
-
+        # Remove some of those out of screen
         if A[9] >= cam.height or C[9] < 0 or A[9] == C[9]:
             return
-        
-        
         
         if A[9] == B[9]:
             # If line AB can be seen, add line AB
@@ -640,7 +641,7 @@ def render(objects:list, lights:list, cam:Camera):
                     z3d = p2 * left[2] + p1 * right[2]
                     if z3d < depth_buffer[A[9]][x]:
                         if cam.obj_buffer:
-                            obj_buffer[A[9][x]] = obj
+                            obj_buffer[A[9]][x] = obj
                         depth_buffer[A[9]][x] = z3d
                         if obj.shade_smooth:
                             normal = (
@@ -721,7 +722,7 @@ def render(objects:list, lights:list, cam:Camera):
                     z3d = p2 * left[2] + p1 * right[2]
                     if z3d < depth_buffer[y][x]:
                         if cam.obj_buffer:
-                            obj[y][x] = obj
+                            obj_buffer[y][x] = obj
                         depth_buffer[y][x] = z3d
                         if obj.shade_smooth:
                             normal = (
@@ -1046,6 +1047,8 @@ def render(objects:list, lights:list, cam:Camera):
     obj: Object    # CodeUndone Vscode
     # Put light in the same space as what the objects will be put in
     for light in lights:
+        if light.hidden:
+            continue
         # Move
         light.x_in_cam = light.x - cam.x
         light.y_in_cam = light.y - cam.y
@@ -1066,6 +1069,8 @@ def render(objects:list, lights:list, cam:Camera):
     # time each loop, same as something like "a = 1", which is acceptable as the
     # for loop goes once a frame
     for obj_index, obj in enumerate(objects):
+        if obj.hidden:
+            continue
         for face in obj.faces:
             # Move the object
             A = vec_minus_vec_3d(obj.v[face[0][0]], (cam.x, cam.y, cam.z))
@@ -1086,11 +1091,11 @@ def render(objects:list, lights:list, cam:Camera):
                 C[5], C[6], C[7] = obj.svn[face[3][2]]
             
             # Culling
-            # if cam.mode <= 4 or cam.mode == 6:
-            #     # Remove those impossible to be seen based on the normal
-            #     # cam_to_point = vec_minus_vec_3d((cam.x, cam.y, cam.z), A[:3])
-            #     if dot_product_v3d(A[:3], obj.vn[face[2]]) > 0:
-            #         continue
+            if cam.mode <= 4 or cam.mode == 6:
+                # Remove those impossible to be seen based on the normal
+                # cam_to_point = vec_minus_vec_3d((cam.x, cam.y, cam.z), A[:3])
+                if dot_product_v3d(A[:3], obj.vn[face[2]]) > 0:
+                    continue
 
             # Rotate the object
             Ax, Bx, Cx, = A[0], B[0], C[0],
@@ -1249,10 +1254,83 @@ def render(objects:list, lights:list, cam:Camera):
                     add_line(inside[3], inside[2])
 
         
-        if cam.mode != 5:
-            return frame, obj_buffer
-        else:
-            return shadow_buffer, uv_gap
+    if cam.mode != 5:
+        return frame, obj_buffer
+    else:
+        return shadow_buffer, uv_gap
+
+
+def fxaa(frame, threshold=0.1, channel=0) -> list:
+    """
+    Frame post-processing
+    input a frame and it will return a processed one
+    if the sum of different reaches threshold, blur will be applied
+    channel can either be 0 or 1. 0 for using green channel as luminance, whereas
+    1 means to calculate the luminace using all rgb values.
+    """
+    width = len(frame[0])
+    height = len(frame)
+    frame_aa = (frame[0:1] + 
+                [[None] * width for _ in range(height - 2)] +
+                frame[height - 1:])
+    # I wrote this if here, so it won't be needed to run on every pixel
+    # though it does make the code more redundant
+    if channel == 0:
+        threshold *= 1024
+        for y in range(1, height - 1):
+            frame_aa[y][0] = frame[y][0]
+            frame_aa[y][width - 1] = frame[y][width - 1]
+            for x in range(1, width - 1):
+                if (abs(frame[y - 1][x][1] - frame[y][x][1]) +
+                    abs(frame[y + 1][x][1] - frame[y][x][1]) +
+                    abs(frame[y][x - 1][1] - frame[y][x][1]) +
+                    abs(frame[y][x + 1][1] - frame[y][x][1])) > threshold:
+                    frame_aa[y][x] = ((frame[y-1][x-1][0] + frame[y-1][x][0] + frame[y-1][x+1][0] +
+                                       frame[y][x-1][0]   + frame[y][x][0]   + frame[y][x+1][0] + 
+                                       frame[y+1][x-1][0] + frame[y+1][x][0] + frame[y+1][x+1][0]) // 9,
+                                      (frame[y-1][x-1][1] + frame[y-1][x][1] + frame[y-1][x+1][1] +
+                                       frame[y][x-1][1]   + frame[y][x][1]   + frame[y][x+1][1] + 
+                                       frame[y+1][x-1][1] + frame[y+1][x][1] + frame[y+1][x+1][1]) // 9,
+                                      (frame[y-1][x-1][2] + frame[y-1][x][2] + frame[y-1][x+1][2] +
+                                       frame[y][x-1][2]   + frame[y][x][2]   + frame[y][x+1][2] + 
+                                       frame[y+1][x-1][2] + frame[y+1][x][2] + frame[y+1][x+1][2]) // 9,)
+                else:
+                    frame_aa[y][x] = frame[y][x]
+    elif channel == 1:
+        threshold *= 512
+        for y in range(1, height - 1):
+            frame_aa[y][0] = frame[y][0]
+            frame_aa[y][width - 1] = frame[y][width - 1]
+            for x in range(1, width - 1):
+                if (0.299 * (
+                        abs(frame[y][x][0] - frame[y + 1][x][0]) + 
+                        abs(frame[y][x][0] - frame[y][x + 1][0])
+                        ) +
+                    0.587 * (
+                        abs(frame[y][x][1] - frame[y + 1][x][1]) + 
+                        abs(frame[y][x][1] - frame[y][x + 1][1])
+                        ) + 
+                    0.114 * (
+                        abs(frame[y][x][2] - frame[y + 1][x][2]) + 
+                        abs(frame[y][x][2] - frame[y][x + 1][2])
+                        )
+                    ) >= threshold:
+                    frame_aa[y][x] = ((frame[y-1][x-1][0] + frame[y-1][x][0] + frame[y-1][x+1][0] +
+                                       frame[y][x-1][0]   + frame[y][x][0]   + frame[y][x+1][0] + 
+                                       frame[y+1][x-1][0] + frame[y+1][x][0] + frame[y+1][x+1][0]) // 9,
+                                      (frame[y-1][x-1][1] + frame[y-1][x][1] + frame[y-1][x+1][1] +
+                                       frame[y][x-1][1]   + frame[y][x][1]   + frame[y][x+1][1] + 
+                                       frame[y+1][x-1][1] + frame[y+1][x][1] + frame[y+1][x+1][1]) // 9,
+                                      (frame[y-1][x-1][2] + frame[y-1][x][2] + frame[y-1][x+1][2] +
+                                       frame[y][x-1][2]   + frame[y][x][2]   + frame[y][x+1][2] + 
+                                       frame[y+1][x-1][2] + frame[y+1][x][2] + frame[y+1][x+1][2]) // 9,)
+                else:
+                    frame_aa[y][x] = frame[y][x]
+    return frame_aa
+
+            
+
+
 
 
 def display(frame) -> None:
