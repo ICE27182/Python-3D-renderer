@@ -97,9 +97,6 @@ Use Build-in List
                          ...]
 - hidden                bool
 - shadow                bool
-- uv_map                [[(R, G, B), (...), ...],
-                         [...],
-                         ...]
 - svn                   [[x, y, z], [...], ...]
 
 
@@ -110,6 +107,7 @@ Use Build-in List
 - name                  str
 <!-- - texture               None/Png -->
 - normal_map            None/Png
+- texture               None/Png
 - texture_path          None/str
 - normal_map_path       None/str
 
@@ -138,6 +136,21 @@ Use Build-in List
 - dirz_in_cam           float
 - type                  0/1
 - hidden                bool
+- shadow                bool
+- shadow_map0           [[z, z, ...], [...], ...]/None
+- shadow_map1           [[z, z, ...], [...], ...]/None
+- shadow_map2           [[z, z, ...], [...], ...]/None
+- shadow_map3           [[z, z, ...], [...], ...]/None
+- shadow_map4           [[z, z, ...], [...], ...]/None
+- shadow_map5           [[z, z, ...], [...], ...]/None
+- shadow_map6           [[z, z, ...], [...], ...]/None
+- rotation0             ((float, float, float), (..., ..., ...), (...))
+- rotation1             ((float, float, float), (..., ..., ...), (...))
+- rotation2             ((float, float, float), (..., ..., ...), (...))
+- rotation3             ((float, float, float), (..., ..., ...), (...))
+- rotation4             ((float, float, float), (..., ..., ...), (...))
+- rotation5             ((float, float, float), (..., ..., ...), (...))
+- rotation6             ((float, float, float), (..., ..., ...), (...))
 - z_near                float
 - z_far                 float
 
