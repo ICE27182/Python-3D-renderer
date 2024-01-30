@@ -1,6 +1,11 @@
 from timeit import timeit
 def tmit(stmt, setup="", number=10**6):
     print(timeit(stmt=stmt, setup=setup, number=number))
+def infi_loop():
+    while True:
+        print(0)
+        pass
+
 # Data type performance
 '''
 # tuple
@@ -261,7 +266,6 @@ l = [([0, 1, 2], 91, 81), ([3, 4, 5,], 92, 82), ([6, 7, 8], 93, 83), ([9, 10, 11
 """,
 number=10**6
 ))
-'''
 import Readability.png as png
 from copy import deepcopy
 texture0 = png.Png("texture", "", from_pickle=False, to_pickle=False).pixels
@@ -291,4 +295,281 @@ texture0 = png.Png("texture", "", from_pickle=False, to_pickle=False).pixels
 """,
 number = 10
 ))
+
+
+left = [1] * 10
+right = [2] * 10
+
+if left[8] < 0:
+    x_start = 0
+else:
+    x_start = left[8]
+
+if right[8] > 1:
+    x_end = 1
+else:
+    x_end = right[8]
+x_start
+x_end
+
+max(left[8], 0)
+min(right[8], 1)
+
+# 3.817218399999547
+print(timeit(
+"""
+if left[8] < 0:
+    x_start = 0
+else:
+    x_start = left[8]
+
+if right[8] > 1:
+    x_end = 1
+else:
+    x_end = right[8]
+x_start
+x_end
+""",
+"""
+left = [1] * 10
+right = [2] * 10
+""",
+number=10**8
+))
+
+# 9.962122400000226
+print(timeit(
+"""
+max(left[8], 0)
+min(right[8], 1)
+""",
+"""
+left = [1] * 10
+right = [2] * 10
+""",
+number=10**8
+))
+
+
+p1 = 0.618271828
+p2 = 1 - p1
+left = [0.271828] * 10
+right = [0.618] * 10
+
+1 / (p2 * left[2] + p1 * right[2])
+1 / (p2 * left[2] + p1 * right[2])
+
+dominator = 1 / (p2 * left[2] + p1 * right[2])
+dominator
+dominator
+
+# 7.121450300001015
+print(timeit(
+"""
+1 / (p2 * left[2] + p1 * right[2])
+1 / (p2 * left[2] + p1 * right[2])
+""",
+"""
+p1 = 0.618271828
+p2 = 1 - p1
+left = [0.271828] * 10
+right = [0.618] * 10
+""",
+number=10**8))
+
+# 4.194964299998901
+print(timeit(
+"""
+dominator = 1 / (p2 * left[2] + p1 * right[2])
+dominator
+dominator
+""",
+"""
+p1 = 0.618271828
+p2 = 1 - p1
+left = [0.271828] * 10
+right = [0.618] * 10
+""",
+number=10**8))
+
+
+
+mode = 4
+hasnormal_map = True
+hastexture = True
+p1 = 0.618271828
+p2 = 1 - p1
+left = [0.271828] * 10
+right = [0.618] * 10
+
+if mode == 0 and (hastexture or hasnormal_map) or mode == 4 and hasnormal_map:
+    p2 * left[2] + p1 * right[2]
+p2 * left[2] + p1 * right[2]
+
+# 0.04200260000015987
+tmit(
+"""
+if mode == 0 and (hastexture or hasnormal_map) or mode == 4 and hasnormal_map:
+    p2 * left[2] + p1 * right[2]
+""",
+"""
+mode = 4
+hasnormal_map = True
+hastexture = True
+p1 = 0.618271828
+p2 = 1 - p1
+left = [0.271828] * 10
+right = [0.618] * 10
+"""
+)
+
+# 0.029005400000187365
+tmit(
+"""
+p2 * left[2] + p1 * right[2]
+""",
+"""
+mode = 4
+hasnormal_map = True
+hastexture = True
+p1 = 0.618271828
+p2 = 1 - p1
+left = [0.271828] * 10
+right = [0.618] * 10
+"""
+)
+
+mode = 0
+if mode <= 1:
+    pass
+mode = 1
+if mode <= 1:
+    pass
+
+mode = 0
+if mode in (0, 1):
+    pass
+mode = 1
+if mode in (0, 1):
+    pass
+
+# 0.021053699999811215
+tmit(
+"""
+mode = 0
+if mode <= 1:
+    pass
+mode = 1
+if mode <= 1:
+    pass
+""",
+)
+
+# 0.02796470000021145
+tmit(
+"""
+mode = 0
+if mode in (0, 1):
+    pass
+mode = 1
+if mode in (0, 1):
+    pass
+""",
+)
+
+# 0.018178800000896445
+tmit(
+"""
+if a < 0 and b < 0 and c < 0:
+    pass
+""",
+"""
+a, b, c = -2, -3, -4
+"""
+)
+
+# 0.058843099999648985
+tmit(
+"""
+if max(a, b, c) < 0:
+    pass
+""",
+"""
+a, b, c = -2, -3, -4
+"""
+)
+
+
+# 0.8136665000001813
+tmit(
+"""
+if b:
+    pass
+""",
+"""
+b = False
+"""
+)
+
+# 0.8479103999998188
+tmit(
+"""
+if b:
+    pass
+""",
+"""
+b = 0
+"""
+)
+
+# 0.7846098999998503
+tmit(
+"""
+if b:
+    pass
+""",
+"""
+b = None
+"""
+)
+'''
+
+from math import sqrt, pi
+a = pi
+b = sqrt(a)
+print(sqrt(a)**3, b * b * b, a**1.5)
+
+# 0.08469250000052853
+tmit(
+"""
+sqrt(a)**3
+""",
+"""
+from math import sqrt, pi
+a = pi
+"""
+)
+
+# 0.04258259999915026
+tmit(
+"""
+b = sqrt(a)
+b * b * b
+""",
+"""
+from math import sqrt, pi
+a = pi
+"""
+)
+
+# 0.05368100000123377
+tmit(
+"""
+a**1.5
+""",
+"""
+from math import sqrt, pi
+a = pi
+"""
+)
 
