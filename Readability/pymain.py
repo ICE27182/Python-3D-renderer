@@ -25,7 +25,7 @@ cam = pyrender.Camera(x=0.0, y = 0, z=-8, mode=1, obj_buffer=True,
 cam = pyrender.Camera(x=-28.146239760044658, y=27.85461356722811, z=26.230155650760807, yaw=-45.0, pitch=-25.0, roll=0.0, width=154, height=78, z_near=0.05, z_far=100.0, fov=100, fxaa=False, obj_buffer=True, mode=6)
 cam = pyrender.Camera(x=17.900746916870048, y=14.03502646815646, z=-19.417756945865527, yaw=130.0, pitch=-25.0, roll=0.0, z_near=0.05, z_far=800.0, fov=100, fxaa=False, obj_buffer=True, mode=1)
 cam = pyrender.Camera(x=38.17488910862855, y=22.57147679995176, z=-23.547138315868377, yaw=160.0, pitch=-20.0, roll=0.0, width=154, height=78, z_near=0.05, z_far=800.0, fov=100, fxaa=False, obj_buffer=True, mode=1)
-cam = pyrender.Camera(x=-22.82940860875683, y=25.939124610679155, z=19.856598511730148, yaw=-65.0, pitch=-35.0, roll=0.0, z_near=0.05, z_far=800.0, fov=100, fxaa=False, obj_buffer=True, mode=1)
+cam = pyrender.Camera(x=-22.82940860875683, y=25.939124610679155, z=19.856598511730148, yaw=-65.0, pitch=-35.0, roll=0.0, z_near=0.05, z_far=800.0, fov=100, fxaa=False, obj_buffer=True, mode=5)
 pyrender.Light.lights.append(
     pyrender.Light(
         (3, 12, 3),
@@ -142,7 +142,7 @@ while True:
         #   f"{len_v(pyrender.Light.lights[0].rotation0[1]):.3f}",
         #   f"{len_v(pyrender.Light.lights[0].rotation0[2]):.3f}",
         #   )
-    # break
+    break
     # print(pyrender.Light.lights[0].dirx, pyrender.Light.lights[0].diry, pyrender.Light.lights[0].dirz)
     key = getwch()
     if key == "w":

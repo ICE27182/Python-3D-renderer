@@ -532,7 +532,7 @@ if b:
 b = None
 """
 )
-'''
+
 
 from math import sqrt, pi
 a = pi
@@ -572,4 +572,38 @@ from math import sqrt, pi
 a = pi
 """
 )
+'''
+
+# 0.01405450003221631
+tmit(
+"""
+A, B = B, A
+""",
+"""
+from random import random, seed
+seed(27182)
+A = [random() for _ in range(20)]
+B = [random() for _ in range(20)]
+print(A)
+print(B)
+"""
+)
+
+# 0.02277799998410046
+tmit(
+"""
+A_copy = A
+A = B
+B = A_copy
+""",
+"""
+from random import random, seed
+seed(27182)
+A = [random() for _ in range(20)]
+B = [random() for _ in range(20)]
+print(A)
+print(B)
+"""
+)
+
 
