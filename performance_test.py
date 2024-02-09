@@ -572,7 +572,7 @@ from math import sqrt, pi
 a = pi
 """
 )
-'''
+
 
 # 0.01405450003221631
 tmit(
@@ -605,5 +605,80 @@ print(A)
 print(B)
 """
 )
+
+
+
+tmit(
+"""
+sum(A)
+""",
+"""
+from random import random, seed
+seed(27182)
+A = [random() for _ in range(20)]
+"""
+)
+
+tmit(
+"""
+sum(A[:])
+""",
+"""
+from random import random, seed
+seed(27182)
+A = [random() for _ in range(20)]
+"""
+)
+'''
+A, B, C, D = [(0,) * 9 + (i,) for i in range(4, 0, -1)]
+print(A, B, C, D, "\n")
+A, B, C, D = sorted((A, B, C, D), key=lambda l: l[9])
+print(A, B, C, D)
+
+A, B, C, D = [(0,) * 9 + (i,) for i in range(4, 0, -1)]
+if A[9] > B[9]:
+    A, B = B, A
+if B[9] > C[9]:
+    B, C = C, B
+    if A[9] > B[9]:
+        A, B = B, A
+if C[9] > D[9]:
+    C, D = D, C
+    if B[9] > C[9]:
+        B, C = C, B
+        if A[9] > B[9]:
+            A, B = B, A
+print(A, B, C, D)
+
+tmit(
+"""
+A, B, C, D = sorted((A, B, C, D), key=lambda l: l[9])
+""",
+"""
+A, B, C, D = [(0,) * 9 + (i,) for i in range(4, 0, -1)]
+"""
+)
+
+
+tmit(
+"""
+if A[9] > B[9]:
+    A, B = B, A
+if B[9] > C[9]:
+    B, C = C, B
+    if A[9] > B[9]:
+        A, B = B, A
+if C[9] > D[9]:
+    C, D = D, C
+    if B[9] > C[9]:
+        B, C = C, B
+        if A[9] > B[9]:
+            A, B = B, A
+""",
+"""
+A, B, C, D = [(0,) * 9 + (i,) for i in range(4, 0, -1)]
+"""
+)
+
 
 

@@ -4,7 +4,6 @@ import subprocess
 # pyrender.Light.shadow_properties = (2048, 0.01, 1000, 1024)
 
 pyrender.Object.default_obj_dir = "models/"
-# pyrender.Object.load_obj(pyrender.Object, "plane512tri")
 pyrender.Object.load_obj(pyrender.Object, "plane")
 # pyrender.Object.objects[0].calculate_smooth_shading_normals()
 # pyrender.Object.objects[0].shade_smooth = True
@@ -12,11 +11,18 @@ pyrender.Object.load_obj(pyrender.Object, "torus and cone")
 pyrender.Object.objects[1].calculate_smooth_shading_normals()
 pyrender.Object.objects[1].shade_smooth = True
 pyrender.Object.load_obj(pyrender.Object, "4cones")
-pyrender.Object.load_obj(pyrender.Object, "axis")
+# pyrender.Object.load_obj(pyrender.Object, "axis")
 
 # pyrender.Object.load_obj(pyrender.Object, "fox")
 # pyrender.Object.objects[1].calculate_smooth_shading_normals()
 # pyrender.Object.objects[1].shade_smooth = True
+
+# pyrender.Object.load_obj(pyrender.Object, "models/Final/Porsche 911")
+# pyrender.Object.load_obj(pyrender.Object, "muscle car 3904 tris")
+for obj in pyrender.Object.objects:
+    obj.shade_smooth = True
+    obj.calculate_smooth_shading_normals()
+
 
 cam = pyrender.Camera(x=0.0, y = 0, z=-8, mode=1, obj_buffer=True,
                       fxaa=False,
@@ -24,12 +30,11 @@ cam = pyrender.Camera(x=0.0, y = 0, z=-8, mode=1, obj_buffer=True,
 
 cam = pyrender.Camera(x=-28.146239760044658, y=27.85461356722811, z=26.230155650760807, yaw=-45.0, pitch=-25.0, roll=0.0, width=154, height=78, z_near=0.05, z_far=100.0, fov=100, fxaa=False, obj_buffer=True, mode=6)
 cam = pyrender.Camera(x=17.900746916870048, y=14.03502646815646, z=-19.417756945865527, yaw=130.0, pitch=-25.0, roll=0.0, z_near=0.05, z_far=800.0, fov=100, fxaa=False, obj_buffer=True, mode=1)
-cam = pyrender.Camera(x=38.17488910862855, y=22.57147679995176, z=-23.547138315868377, yaw=160.0, pitch=-20.0, roll=0.0, width=154, height=78, z_near=0.05, z_far=800.0, fov=100, fxaa=False, obj_buffer=True, mode=1)
-cam = pyrender.Camera(x=-22.82940860875683, y=25.939124610679155, z=19.856598511730148, yaw=-65.0, pitch=-35.0, roll=0.0, z_near=0.05, z_far=800.0, fov=100, fxaa=False, obj_buffer=True, mode=5)
+cam = pyrender.Camera(x=11.300097930733683, y=9.047692424249316, z=-11.62869769883726, yaw=130.0, pitch=-25.0, roll=0.0, width=131, height=63, z_near=0.05, z_far=800.0, fov=100, fxaa=False, obj_buffer=True, mode=1)
 pyrender.Light.lights.append(
     pyrender.Light(
         (3, 12, 3),
-        (0.4 * 64, 1.6 * 64, 0.8 * 64,)
+        (156 // 2, 220 // 2, 256 // 2,)
     )
 )
 # pyrender.Light.lights.append(
@@ -62,7 +67,7 @@ pyrender.Light.lights.append(
 pyrender.Light.lights.append(
     pyrender.Light(
         (0, 16, 0),
-        (0.2 * 1, 0.005 * 1, 0.01 * 1,),
+        (0.01 * 1, 0.005 * 1, 0.015 * 1,),
         (0, -1, 0),
         0
     )
@@ -142,7 +147,7 @@ while True:
         #   f"{len_v(pyrender.Light.lights[0].rotation0[1]):.3f}",
         #   f"{len_v(pyrender.Light.lights[0].rotation0[2]):.3f}",
         #   )
-    break
+    # break
     # print(pyrender.Light.lights[0].dirx, pyrender.Light.lights[0].diry, pyrender.Light.lights[0].dirz)
     key = getwch()
     if key == "w":

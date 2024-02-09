@@ -14,7 +14,7 @@ from os.path import isfile
 from os import get_terminal_size, system
 # For Debug
 from winsound import Beep
-def Bp(): Beep(1000, 256)
+def Bp(fre=1000): Beep(fre, 256)
 
 def normalize_v3d(vector):
     length = sqrt(vector[0]**2 + vector[1]**2 + vector[2]**2)
@@ -1263,7 +1263,7 @@ def render(objects:list, lights:list, cam:Camera):
                 line(normal, left, right, y)
 
        
-    def rasterize_full(A, B, C):
+    def rasterize_full(A, B, C, normal):
         def line(normal, left, right, y):
             # faster than max(...), min(...)
             if left[8] <= 0:
@@ -1309,13 +1309,6 @@ def render(objects:list, lights:list, cam:Camera):
                 #         luminance,
                 #         0
                 #     )
-        # Sorting by y, from lowest to highest in value but from top to bottom in what u see
-        if A[9] > B[9]:
-            A, B = B, A
-        if B[9] > C[9]:
-            B, C = C, B
-        if A[9] > B[9]:
-            A, B = B, A
         # Remove some of those out of screen
         if (A[9] >= cam.height or 
             C[9] < 0 or 
@@ -1328,12 +1321,18 @@ def render(objects:list, lights:list, cam:Camera):
         A[2] = 1 / A[2]
         A[0] = A[0] * A[2]
         A[1] = A[1] * A[2]
+        A[3] = A[3] * A[2]
+        A[4] = A[4] * A[2]
         B[2] = 1 / B[2]
         B[0] = B[0] * B[2]
         B[1] = B[1] * B[2]
+        B[3] = B[3] * B[2]
+        B[4] = B[4] * B[2]
         C[2] = 1 / C[2]
         C[0] = C[0] * C[2]
         C[1] = C[1] * C[2]
+        C[3] = C[3] * C[2]
+        C[4] = C[4] * C[2]
 
     
         if A[9] == B[9]:
@@ -1363,8 +1362,8 @@ def render(objects:list, lights:list, cam:Camera):
                     left = (m2 * A[0] + m1 * C[0], 
                             m2 * A[1] + m1 * C[1], 
                             m2 * A[2] + m1 * C[2], 
-                            None, 
-                            None, 
+                            m2 * A[3] + m1 * C[3], 
+                            m2 * A[4] + m1 * C[4], 
                             m2 * A[5] + m1 * C[5], 
                             m2 * A[6] + m1 * C[6], 
                             m2 * A[7] + m1 * C[7], 
@@ -1374,8 +1373,8 @@ def render(objects:list, lights:list, cam:Camera):
                     right = (m2 * B[0] + m1 * C[0],
                             m2 * B[1] + m1 * C[1],
                             m2 * B[2] + m1 * C[2],
-                            None, 
-                            None, 
+                            m2 * B[3] + m1 * C[3],
+                            m2 * B[4] + m1 * C[4],
                             m2 * B[5] + m1 * C[5], 
                             m2 * B[6] + m1 * C[6], 
                             m2 * B[7] + m1 * C[7], 
@@ -1387,8 +1386,8 @@ def render(objects:list, lights:list, cam:Camera):
                     left = (m2 * A[0] + m1 * C[0], 
                             m2 * A[1] + m1 * C[1], 
                             m2 * A[2] + m1 * C[2], 
-                            None, 
-                            None, 
+                            m2 * A[3] + m1 * C[3], 
+                            m2 * A[4] + m1 * C[4], 
                             None, 
                             None, 
                             None, 
@@ -1398,8 +1397,8 @@ def render(objects:list, lights:list, cam:Camera):
                     right = (m2 * B[0] + m1 * C[0],
                             m2 * B[1] + m1 * C[1],
                             m2 * B[2] + m1 * C[2],
-                            None, 
-                            None, 
+                            m2 * B[3] + m1 * C[3],
+                            m2 * B[4] + m1 * C[4],
                             None, 
                             None, 
                             None, 
@@ -1439,8 +1438,8 @@ def render(objects:list, lights:list, cam:Camera):
                     left = (m2 * A[0] + m1 * B[0], 
                             m2 * A[1] + m1 * B[1], 
                             m2 * A[2] + m1 * B[2], 
-                            None, 
-                            None, 
+                            m2 * A[3] + m1 * B[3], 
+                            m2 * A[4] + m1 * B[4], 
                             m2 * A[5] + m1 * B[5], 
                             m2 * A[6] + m1 * B[6], 
                             m2 * A[7] + m1 * B[7], 
@@ -1450,8 +1449,8 @@ def render(objects:list, lights:list, cam:Camera):
                     right = (m2 * A[0] + m1 * C[0],
                             m2 * A[1] + m1 * C[1],
                             m2 * A[2] + m1 * C[2],
-                            None, 
-                            None, 
+                            m2 * A[3] + m1 * C[3],
+                            m2 * A[4] + m1 * C[4],
                             m2 * A[5] + m1 * C[5], 
                             m2 * A[6] + m1 * C[6], 
                             m2 * A[7] + m1 * C[7], 
@@ -1512,8 +1511,8 @@ def render(objects:list, lights:list, cam:Camera):
                     left = (m2 * A[0] + m1 * B[0], 
                             m2 * A[1] + m1 * B[1], 
                             m2 * A[2] + m1 * B[2], 
-                            None,
-                            None, 
+                            m2 * A[3] + m1 * B[3], 
+                            m2 * A[4] + m1 * B[4],  
                             m2 * A[5] + m1 * B[5], 
                             m2 * A[6] + m1 * B[6], 
                             m2 * A[7] + m1 * B[7], 
@@ -1523,8 +1522,8 @@ def render(objects:list, lights:list, cam:Camera):
                     right = (n2 * A[0] + n1 * C[0],
                             n2 * A[1] + n1 * C[1],
                             n2 * A[2] + n1 * C[2],
-                            None,
-                            None,
+                            n2 * A[3] + n1 * C[3],
+                            n2 * A[4] + n1 * C[4],
                             n2 * A[5] + n1 * C[5], 
                             n2 * A[6] + n1 * C[6], 
                             n2 * A[7] + n1 * C[7], 
@@ -1536,8 +1535,8 @@ def render(objects:list, lights:list, cam:Camera):
                     left = (m2 * A[0] + m1 * B[0], 
                             m2 * A[1] + m1 * B[1], 
                             m2 * A[2] + m1 * B[2], 
-                            None,
-                            None, 
+                            m2 * A[3] + m1 * B[3], 
+                            m2 * A[4] + m1 * B[4],  
                             None, 
                             None, 
                             None, 
@@ -1547,8 +1546,8 @@ def render(objects:list, lights:list, cam:Camera):
                     right = (n2 * A[0] + n1 * C[0],
                             n2 * A[1] + n1 * C[1],
                             n2 * A[2] + n1 * C[2],
-                            None,
-                            None,
+                            n2 * A[3] + n1 * C[3],
+                            n2 * A[4] + n1 * C[4],
                             None, 
                             None, 
                             None, 
@@ -1582,8 +1581,8 @@ def render(objects:list, lights:list, cam:Camera):
                     left = (n2 * A[0] + n1 * C[0], 
                             n2 * A[1] + n1 * C[1], 
                             n2 * A[2] + n1 * C[2], 
-                            None, 
-                            None, 
+                            n2 * A[3] + n1 * C[3], 
+                            n2 * A[4] + n1 * C[4], 
                             n2 * A[5] + n1 * C[5], 
                             n2 * A[6] + n1 * C[6], 
                             n2 * A[7] + n1 * C[7], 
@@ -1593,8 +1592,8 @@ def render(objects:list, lights:list, cam:Camera):
                     right = (m2 * B[0] + m1 * C[0],
                             m2 * B[1] + m1 * C[1],
                             m2 * B[2] + m1 * C[2],
-                            None, 
-                            None, 
+                            m2 * B[3] + m1 * C[3],
+                            m2 * B[4] + m1 * C[4],
                             m2 * B[5] + m1 * C[5], 
                             m2 * B[6] + m1 * C[6], 
                             m2 * B[7] + m1 * C[7], 
@@ -1606,8 +1605,8 @@ def render(objects:list, lights:list, cam:Camera):
                     left = (n2 * A[0] + n1 * C[0], 
                             n2 * A[1] + n1 * C[1], 
                             n2 * A[2] + n1 * C[2], 
-                            None, 
-                            None, 
+                            n2 * A[3] + n1 * C[3], 
+                            n2 * A[4] + n1 * C[4], 
                             None, 
                             None, 
                             None, 
@@ -1617,8 +1616,8 @@ def render(objects:list, lights:list, cam:Camera):
                     right = (m2 * B[0] + m1 * C[0],
                             m2 * B[1] + m1 * C[1],
                             m2 * B[2] + m1 * C[2],
-                            None, 
-                            None, 
+                            m2 * B[3] + m1 * C[3],
+                            m2 * B[4] + m1 * C[4],
                             None, 
                             None, 
                             None, 
@@ -1690,47 +1689,33 @@ def render(objects:list, lights:list, cam:Camera):
             for y in range(y_start, y_end):
                 m1 = (y - A[9]) / (C[9] - A[9])
                 m2 = 1 - m1
-                # x, z, u, v, 0, 0, 0, x2d, y2d
-                left = (None, 
-                        None, 
+                # z, x2d
+                left = (
                         m2 * A[2] + m1 * C[2], 
-                        None, 
-                        None, 
-                        None, 
-                        None, 
-                        None, 
                         int(tAC * y + bAC),
-                        y, 
                         )            
-                right = (None,
-                        None,
+                right = (
                         m2 * B[2] + m1 * C[2],
-                        None, 
-                        None, 
-                        None, 
-                        None, 
-                        None, 
                         int(tBC * y + bBC),
-                        y, 
                         )
                 # CodeUndone Should be unnecessary to check left and right
                 # because A is left to B and left is AC, right is BC
-                if left[8] > right[8]:
+                if left[1] > right[1]:
                     left, right = right, left
 
-                if left[8] <= 0:
+                if left[1] <= 0:
                     x_start = 0
                 else:
-                    x_start = left[8]
-                if right[8] >= cam.width - 1:
+                    x_start = left[1]
+                if right[1] >= cam.width - 1:
                     x_end = cam.width - 1
                 else:
-                    x_end = right[8]
+                    x_end = right[1]
 
                 for x in range(x_start, x_end):
-                    p1 = (x - left[8]) / (right[8] - left[8])
+                    p1 = (x - left[1]) / (right[1] - left[1])
                     p2 = 1 - p1
-                    z3d = 1 / (p2 * left[2] + p1 * right[2])
+                    z3d = 1 / (p2 * left[0] + p1 * right[0])
                     if z3d < depth_buffer[y][x]:
                         depth_buffer[y][x] = z3d
                         frame[y][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
@@ -1773,47 +1758,33 @@ def render(objects:list, lights:list, cam:Camera):
             for y in range(y_start, y_end):
                 m1 = (y - A[9]) / (B[9] - A[9])
                 m2 = 1 - m1
-                # x, z, u, v, 0, 0, 0, x2d, y2d
-                left = (None, 
-                        None, 
+                # z, x2d
+                left = (
                         m2 * A[2] + m1 * B[2], 
-                        None, 
-                        None, 
-                        None, 
-                        None, 
-                        None, 
                         int(tAB * y + bAB),
-                        y, 
                         )            
-                right = (None, 
-                        None,
+                right = (
                         m2 * A[2] + m1 * C[2],
-                        None, 
-                        None, 
-                        None, 
-                        None, 
-                        None, 
                         int(tAC * y + bAC),
-                        y, 
                         )
                 # CodeUndone Should be unnecessary to check left and right
                 # because A is left to B and left is AC, right is BC            
-                if left[8] > right[8]:
+                if left[1] > right[1]:
                     left, right = right, left
 
-                if left[8] <= 0:
+                if left[1] <= 0:
                     x_start = 0
                 else:
-                    x_start = left[8]
-                if right[8] >= cam.width - 1:
+                    x_start = left[1]
+                if right[1] >= cam.width - 1:
                     x_end = cam.width - 1
                 else:
-                    x_end = right[8]
+                    x_end = right[1]
 
                 for x in range(x_start, x_end):
-                    p1 = (x - left[8]) / (right[8] - left[8])
+                    p1 = (x - left[1]) / (right[1] - left[1])
                     p2 = 1 - p1
-                    z3d = 1 / (p2 * left[2] + p1 * right[2])
+                    z3d = 1 / (p2 * left[0] + p1 * right[0])
                     if z3d < depth_buffer[y][x]:
                         depth_buffer[y][x] = z3d
                         frame[y][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
@@ -1837,46 +1808,32 @@ def render(objects:list, lights:list, cam:Camera):
                 m2 = 1 - m1
                 n1 = (y - A[9]) / (C[9] - A[9])
                 n2 = 1 - n1
-                # x, z, u, v, 0, 0, 0, x2d, y2d
-                left = (None,
-                        None,
+                # z, x2d
+                left = (
                         m2 * A[2] + m1 * B[2], 
-                        None,
-                        None, 
-                        None, 
-                        None, 
-                        None, 
                         int(tAB * y + bAB),
-                        y, 
                         )            
-                right = (None,
-                        None,
+                right = (
                         n2 * A[2] + n1 * C[2],
-                        None,
-                        None,
-                        None, 
-                        None, 
-                        None, 
                         int(tAC * y + bAC),
-                        y, 
                         )
                 # CodeUndone Should be unnecessary to check left and right
                 # because A is left to B and left is AC, right is BC            
-                if left[8] > right[8]:
+                if left[1] > right[1]:
                     left, right = right, left
-                if left[8] <= 0:
+                if left[1] <= 0:
                     x_start = 0
                 else:
-                    x_start = left[8]
-                if right[8] >= cam.width - 1:
+                    x_start = left[1]
+                if right[1] >= cam.width - 1:
                     x_end = cam.width - 1
                 else:
-                    x_end = right[8]
+                    x_end = right[1]
 
                 for x in range(x_start, x_end):
-                    p1 = (x - left[8]) / (right[8] - left[8])
+                    p1 = (x - left[1]) / (right[1] - left[1])
                     p2 = 1 - p1
-                    z3d = 1 / (p2 * left[2] + p1 * right[2])
+                    z3d = 1 / (p2 * left[0] + p1 * right[0])
                     if z3d < depth_buffer[y][x]:
                         depth_buffer[y][x] = z3d
                         frame[y][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
@@ -1898,49 +1855,288 @@ def render(objects:list, lights:list, cam:Camera):
                 n1 = (y - A[9]) / (C[9] - A[9])
                 n2 = 1 - n1
                 # x, z, u, v, 0, 0, 0, x2d, y2d
-                left = (None,
-                        None,
+                left = (
                         n2 * A[2] + n1 * C[2], 
-                        None, 
-                        None, 
-                        None, 
-                        None, 
-                        None, 
                         int(tAC * y + bAC),
-                        y, 
                         )            
-                right = (None,
-                        None,
+                right = (
                         m2 * B[2] + m1 * C[2],
-                        None, 
-                        None, 
-                        None, 
-                        None, 
-                        None, 
                         int(tBC * y + bBC),
-                        y, 
                         )
                 # CodeUndone Should be unnecessary to check left and right
                 # because A is left to B and left is AC, right is BC
-                if left[8] > right[8]:
+                if left[1] > right[1]:
                     left, right = right, left
-                if left[8] <= 0:
+                if left[1] <= 0:
                     x_start = 0
                 else:
-                    x_start = left[8]
-                if right[8] >= cam.width - 1:
+                    x_start = left[1]
+                if right[1] >= cam.width - 1:
                     x_end = cam.width - 1
                 else:
-                    x_end = right[8]
+                    x_end = right[1]
 
                 for x in range(x_start, x_end):
-                    p1 = (x - left[8]) / (right[8] - left[8])
+                    p1 = (x - left[1]) / (right[1] - left[1])
                     p2 = 1 - p1
-                    z3d = 1 / (p2 * left[2] + p1 * right[2])
+                    z3d = 1 / (p2 * left[0] + p1 * right[0])
                     if z3d < depth_buffer[y][x]:
                         depth_buffer[y][x] = z3d
                         frame[y][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
-    
+
+
+    def shadow(A, B, C):
+        # Sorting by y, from lowest to highest in value but from top to bottom in what u see
+        if A[9] > B[9]:
+            A, B = B, A
+        if B[9] > C[9]:
+            B, C = C, B
+        if A[9] > B[9]:
+            A, B = B, A
+        # Remove some of those out of screen
+        if (A[9] >= cam.height or 
+            C[9] < 0 or 
+            A[9] == C[9] or
+            A[8] < 0 and B[8] < 0 and C[8] < 0 or
+            A[8] >= cam.width and B[8] >= cam.width and C[8] >= cam.width):
+            return
+        
+        # Perspective correction
+        A[2] = 1 / A[2]
+        B[2] = 1 / B[2]
+        C[2] = 1 / C[2]
+
+        if A[9] == B[9]:
+            if A[8] > B[8]:
+                A, B = B, A
+            if A[9] >= 0:
+                if A[8] <= 0:
+                    x_start = 0
+                else:
+                    x_start = A[8]
+                if B[8] >= cam.width - 1:
+                    x_end = cam.width - 1
+                else:
+                    x_end = B[8]
+
+                for x in range(x_start, x_end):
+                    p1 = (x - A[8]) / (B[8] - A[8])
+                    p2 = 1 - p1
+                    z3d = 1 / (p2 * A[2] + p1 * B[2])
+                    if z3d < depth_buffer[A[9]][x]:
+                        depth_buffer[A[9]][x] = z3d
+
+            tAC = (A[8] - C[8]) / (A[9] - C[9])
+            bAC = A[8] - A[9] * tAC
+            tBC = (B[8] - C[8]) / (B[9] - C[9])
+            bBC = B[8] - B[9] * tBC
+
+            if B[9] <= 0:
+                y_start = 0
+            else:
+                y_start = B[9]
+            if C[9] >= cam.height - 1:
+                y_end = cam.height - 1
+            else:
+                y_end = C[9]
+            for y in range(y_start, y_end):
+                m1 = (y - A[9]) / (C[9] - A[9])
+                m2 = 1 - m1
+                # z, x2d
+                left = (
+                        m2 * A[2] + m1 * C[2], 
+                        int(tAC * y + bAC),
+                        )            
+                right = (
+                        m2 * B[2] + m1 * C[2],
+                        int(tBC * y + bBC),
+                        )
+                # CodeUndone Should be unnecessary to check left and right
+                # because A is left to B and left is AC, right is BC
+                if left[1] > right[1]:
+                    left, right = right, left
+
+                if left[1] <= 0:
+                    x_start = 0
+                else:
+                    x_start = left[1]
+                if right[1] >= cam.width - 1:
+                    x_end = cam.width - 1
+                else:
+                    x_end = right[1]
+
+                for x in range(x_start, x_end):
+                    p1 = (x - left[1]) / (right[1] - left[1])
+                    p2 = 1 - p1
+                    z3d = 1 / (p2 * left[0] + p1 * right[0])
+                    if z3d < depth_buffer[y][x]:
+                        depth_buffer[y][x] = z3d
+                        frame[y][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
+
+        elif B[9] == C[9]:
+            if B[8] > C[8]:
+                B, C = C, B
+            if B[9] < cam.height:
+                if B[8] <= 0:
+                    x_start = 0
+                else:
+                    x_start = B[8]
+                if C[8] >= cam.width - 1:
+                    x_end = cam.width - 1
+                else:
+                    x_end = C[8]
+
+                for x in range(x_start, x_end):
+                    p1 = (x - B[8]) / (C[8] - B[8])
+                    p2 = 1 - p1
+                    z3d = 1 / (p2 * B[2] + p1 * C[2])
+                    if z3d < depth_buffer[B[9]][x]:
+                        depth_buffer[B[9]][x] = z3d
+                        frame[B[9]][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
+
+            tAB = (B[8] - A[8]) / (B[9] - A[9])
+            bAB = B[8] - B[9] * tAB
+            tAC = (A[8] - C[8]) / (A[9] - C[9])
+            bAC = A[8] - A[9] * tAC
+
+            if A[9] <= 0:
+                y_start = 0
+            else:
+                y_start = A[9]
+            if B[9] >= cam.height - 1:
+                y_end = cam.height - 1
+            else:
+                y_end = B[9]
+
+            for y in range(y_start, y_end):
+                m1 = (y - A[9]) / (B[9] - A[9])
+                m2 = 1 - m1
+                # z, x2d
+                left = (
+                        m2 * A[2] + m1 * B[2], 
+                        int(tAB * y + bAB),
+                        )            
+                right = (
+                        m2 * A[2] + m1 * C[2],
+                        int(tAC * y + bAC),
+                        )
+                # CodeUndone Should be unnecessary to check left and right
+                # because A is left to B and left is AC, right is BC            
+                if left[1] > right[1]:
+                    left, right = right, left
+
+                if left[1] <= 0:
+                    x_start = 0
+                else:
+                    x_start = left[1]
+                if right[1] >= cam.width - 1:
+                    x_end = cam.width - 1
+                else:
+                    x_end = right[1]
+
+                for x in range(x_start, x_end):
+                    p1 = (x - left[1]) / (right[1] - left[1])
+                    p2 = 1 - p1
+                    z3d = 1 / (p2 * left[0] + p1 * right[0])
+                    if z3d < depth_buffer[y][x]:
+                        depth_buffer[y][x] = z3d
+                        frame[y][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
+        
+        else:
+            tAC = (A[8] - C[8]) / (A[9] - C[9])
+            bAC = A[8] - A[9] * tAC
+            tAB = (A[8] - B[8]) / (A[9] - B[9])
+            bAB = A[8] - A[9] * tAB
+
+            if A[9] <= 0:
+                y_start = 0
+            else:
+                y_start = A[9]
+            if B[9] >= cam.height - 1:
+                y_end = cam.height - 1
+            else:
+                y_end = B[9]
+            for y in range(y_start, y_end):
+                m1 = (y - A[9]) / (B[9] - A[9])
+                m2 = 1 - m1
+                n1 = (y - A[9]) / (C[9] - A[9])
+                n2 = 1 - n1
+                # z, x2d
+                left = (
+                        m2 * A[2] + m1 * B[2], 
+                        int(tAB * y + bAB),
+                        )            
+                right = (
+                        n2 * A[2] + n1 * C[2],
+                        int(tAC * y + bAC),
+                        )
+                # CodeUndone Should be unnecessary to check left and right
+                # because A is left to B and left is AC, right is BC            
+                if left[1] > right[1]:
+                    left, right = right, left
+                if left[1] <= 0:
+                    x_start = 0
+                else:
+                    x_start = left[1]
+                if right[1] >= cam.width - 1:
+                    x_end = cam.width - 1
+                else:
+                    x_end = right[1]
+
+                for x in range(x_start, x_end):
+                    p1 = (x - left[1]) / (right[1] - left[1])
+                    p2 = 1 - p1
+                    z3d = 1 / (p2 * left[0] + p1 * right[0])
+                    if z3d < depth_buffer[y][x]:
+                        depth_buffer[y][x] = z3d
+                        frame[y][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
+
+            tBC = (B[8] - C[8]) / (B[9] - C[9])
+            bBC = B[8] - B[9] * tBC
+
+            if B[9] <= 0:
+                y_start = 0
+            else:
+                y_start = B[9]
+            if C[9] >= cam.height - 1:
+                y_end = cam.height - 1
+            else:
+                y_end = C[9]
+            for y in range(y_start, y_end):
+                m1 = (y - B[9]) / (C[9] - B[9])
+                m2 = 1 - m1
+                n1 = (y - A[9]) / (C[9] - A[9])
+                n2 = 1 - n1
+                # x, z, u, v, 0, 0, 0, x2d, y2d
+                left = (
+                        n2 * A[2] + n1 * C[2], 
+                        int(tAC * y + bAC),
+                        )            
+                right = (
+                        m2 * B[2] + m1 * C[2],
+                        int(tBC * y + bBC),
+                        )
+                # CodeUndone Should be unnecessary to check left and right
+                # because A is left to B and left is AC, right is BC
+                if left[1] > right[1]:
+                    left, right = right, left
+                if left[1] <= 0:
+                    x_start = 0
+                else:
+                    x_start = left[1]
+                if right[1] >= cam.width - 1:
+                    x_end = cam.width - 1
+                else:
+                    x_end = right[1]
+
+                for x in range(x_start, x_end):
+                    p1 = (x - left[1]) / (right[1] - left[1])
+                    p2 = 1 - p1
+                    z3d = 1 / (p2 * left[0] + p1 * right[0])
+                    if z3d < depth_buffer[y][x]:
+                        depth_buffer[y][x] = z3d
+                        frame[y][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
+     
     # Initiate Depth Buffer and/or Object Buffer  
     # Mode 6&7 render lines instead of triangles, so depth test is not necessary
     if cam.mode <= 5:
@@ -2168,15 +2364,20 @@ def render(objects:list, lights:list, cam:Camera):
             if len(inside) == 4:
                 inside[3][8] = cam.width // 2 + int(inside[3][0] * cam.rendering_plane_z / inside[3][2])
                 inside[3][9] = cam.height // 2 - int(inside[3][1] * cam.rendering_plane_z / inside[3][2])
+
+
             if cam.mode == 0:
                 if obj.hasnormal_map and obj.hastexture:
+                    
                     pass
                 elif obj.hastexture:
+                    
                     pass
                 elif obj.hasnormal_map:
+                    
                     pass
                 else:
-                    rasterize_solid(inside[0], inside[1], inside[2], normal)
+                    rasterize_solid(inside[0], inside[1][:], inside[2][:], normal)
                     if len(inside) == 4:
                         rasterize_solid(inside[1], inside[2], inside[3], normal)
             elif cam.mode == 1:
@@ -2193,9 +2394,11 @@ def render(objects:list, lights:list, cam:Camera):
             elif cam.mode == 4:
                 pass
             elif cam.mode == 5:
-                depth(inside[0], inside[1], inside[2])
+                shadow(inside[0], inside[1][:], inside[2][:])
+                # Bp()
                 if len(inside) == 4:
-                    depth(inside[1], inside[2], inside[3])
+                    # Bp(2000)
+                    shadow(inside[1], inside[2], inside[3])
             elif cam.mode in (6, 7):
                 add_line(inside[0], inside[1])
                 add_line(inside[1], inside[2])
