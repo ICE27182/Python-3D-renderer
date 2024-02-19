@@ -1,5 +1,5 @@
 global bias_scalar
-bias_scalar = 2.4
+bias_scalar = 0.6
 
 # Used to read texture and normal map, 
 # as well as storing screen shot in bmp
@@ -15,28 +15,34 @@ from os import get_terminal_size, system
 # For Debug
 from winsound import Beep
 def Bp(fre=1000): Beep(fre, 256)
+from inspect import currentframe
 
 def normalize_v3d(vector):
     length = sqrt(vector[0]**2 + vector[1]**2 + vector[2]**2)
     return [vector[0] / length, vector[1] / length, vector[2] / length,]
-
+def v_dot_u(v, u):
+    return v[0]*u[0] + v[1]*u[1] + v[2]*u[2]
+def len_v(v):
+    return sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
 
 
 class Object:
     # [Object, Object, ...]
     objects = []
-    # [[x, y, z], [...], ...]
-    v = []
-    # [(u, v), (...), ...]
-    vt = []
-    # [[x, y, z], [...], ...]
-    vn = []
     # {name: Material}
     materials = {}
     # Remember to add / at the end
     default_obj_dir = "./"
+
     def __init__(self, name:str) -> None:
         self.name = name
+        self.center = [0, 0, 0]
+        # [[x, y, z], [...], ...]
+        self.v = []
+        # [(u, v), (...), ...]
+        self.vt = []
+        # [[x, y, z], [...], ...]
+        self.vn = []
         # [
         #   [
         #       (v_idx, v_idx, v_idx), 
@@ -54,13 +60,24 @@ class Object:
         self.hidden = False
         self.hastexture = False
         self.hasnormal_map = False
-    
+        self.culling = True
+        self.x_r = 0.0
+        self.y_r = 0.0
+        self.z_r = 0.0
+        self.rotation = (
+            (1, 0, 0),
+            (0, 1, 0),
+            (0, 0, 1),
+        )
+
 
     def __str__(self):
         return (f"{self.name} | {self.face_count} faces | " +
                 f"Shading {'smooth' if self.shade_smooth else 'flat'} | " +
-                f"Texture: {self.hastexture} | Normal Map: {self.hasnormal_map} |" +
-                f"Shadow: {self.shadow}")
+                f"Texture: {self.hastexture} | Normal Map: {self.hasnormal_map} | " +
+                f"Shadow: {self.shadow} | Culling:{self.culling} | " +
+                f"Center: {self.center[0]:.3f} {self.center[1]:.3f} {self.center[2]:.3f} " +
+                f"Rotation {self.x_r:.3f} {self.y_r:.3f} {self.z_r:.3f}")
 
 
     def load_obj(self, file:str, dir:str=None):
@@ -103,9 +120,9 @@ class Object:
             # I think it's a good idea to merge the two steps so
             # It won't be necessary to do one more subtraction 
             # every time it add a vertex information.
-            v_offset = len(self.v) - 1
-            vt_offset = len(self.vt) - 1
-            vn_offset = len(self.vn) - 1
+            v_count_plus_1 = 1
+            vt_count_plus_1 = 1
+            vn_count_plus_1 = 1
             for line in obj_file.readlines():
                 line = line.strip()
                 if line.startswith("#"):
@@ -118,18 +135,24 @@ class Object:
                     current_obejct = Object(name = line[2:])
                     self.objects.append(current_obejct)
                     print(f"Loading {current_obejct.name}")
+                    v_offset = v_count_plus_1
+                    vt_offset = vt_count_plus_1
+                    vn_offset = vn_count_plus_1
                 elif line.startswith("v "):
-                    self.v.append(list(map(float, line[2:].split())))
+                    current_obejct.v.append(list(map(float, line[2:].split())))
+                    v_count_plus_1 += 1
                     if convert_to_left_hand:
-                        self.v[-1][0] *= -1
+                        current_obejct.v[-1][0] *= -1
                 elif line.startswith("vt "):
-                    self.vt.append(tuple(map(float, line[3:].split())))
+                    current_obejct.vt.append(tuple(map(float, line[3:].split())))
+                    vt_count_plus_1 += 1
                     if convert_to_left_hand:
-                        self.vt[-1] = (self.vt[-1][0], 1 - self.vt[-1][1])
+                        current_obejct.vt[-1] = (current_obejct.vt[-1][0], 1 - current_obejct.vt[-1][1])
                 elif line.startswith("vn "):
-                    self.vn.append(list(map(float, line[3:].split())))
+                    current_obejct.vn.append(list(map(float, line[3:].split())))
+                    vn_count_plus_1 += 1
                     if convert_to_left_hand:
-                        self.vn[-1][0] *= -1
+                        current_obejct.vn[-1][0] *= -1
                 elif line in ("s 1", "s on"):
                     current_obejct.shade_smooth = True
                 elif line.startswith("usemtl ") and mtl_loaded:
@@ -140,11 +163,11 @@ class Object:
                     if "//" in face[0]:
                         face = (face[0].split("//"), face[1].split("//"), face[2].split("//"))
                         face = [
-                            (int(face[0][0]) + v_offset, 
-                             int(face[1][0]) + v_offset, 
-                             int(face[2][0]) + v_offset),
+                            (int(face[0][0]) - v_offset, 
+                             int(face[1][0]) - v_offset, 
+                             int(face[2][0]) - v_offset),
                              None,
-                             int(face[0][1]) + vn_offset,
+                             int(face[0][1]) - vn_offset,
                              [None, None, None],
                         ]
                     # v or v&vt&vn
@@ -153,9 +176,9 @@ class Object:
                         # v
                         if len(face[0]) == 1:
                             face = [
-                                (int(face[0][0]) + v_offset, 
-                                 int(face[1][0]) + v_offset, 
-                                 int(face[2][0]) + v_offset),
+                                (int(face[0][0]) - v_offset, 
+                                 int(face[1][0]) - v_offset, 
+                                 int(face[2][0]) - v_offset),
                                 None,
                                 None,
                                 [None, None, None],
@@ -163,25 +186,25 @@ class Object:
                         # v&vt
                         elif len(face[0]) == 2:
                             face = [
-                                (int(face[0][0]) + v_offset, 
-                                 int(face[1][0]) + v_offset, 
-                                 int(face[2][0]) + v_offset),
-                                (int(face[0][1]) + vt_offset, 
-                                 int(face[1][1]) + vt_offset,
-                                 int(face[2][1]) + vt_offset),
+                                (int(face[0][0]) - v_offset, 
+                                 int(face[1][0]) - v_offset, 
+                                 int(face[2][0]) - v_offset),
+                                (int(face[0][1]) - vt_offset, 
+                                 int(face[1][1]) - vt_offset,
+                                 int(face[2][1]) - vt_offset),
                                 None,
                                 [None, None, None],
                             ]
                         # v&vt&vn
                         else:    # elif len(face[0]) == 3:
                             face = [
-                                (int(face[0][0]) + v_offset, 
-                                 int(face[1][0]) + v_offset, 
-                                 int(face[2][0]) + v_offset),
-                                (int(face[0][1]) + vt_offset, 
-                                 int(face[1][1]) + vt_offset,
-                                 int(face[2][1]) + vt_offset),
-                                int(face[0][2]) + vn_offset,
+                                (int(face[0][0]) - v_offset, 
+                                 int(face[1][0]) - v_offset, 
+                                 int(face[2][0]) - v_offset),
+                                (int(face[0][1]) - vt_offset, 
+                                 int(face[1][1]) - vt_offset,
+                                 int(face[2][1]) - vt_offset),
+                                int(face[0][2]) - vn_offset,
                                 [None, None, None],
                             ]
                     current_obejct.faces.append(face)
@@ -264,9 +287,9 @@ class Object:
             for i in (0, 1, 2):
                 # CodeUndone donno which is faster, if-in-else or try-except
                 if face[0][i] in v_vn:
-                    v_vn[face[0][i]].append((Object.vn[face[2]], findex, i))
+                    v_vn[face[0][i]].append((self.vn[face[2]], findex, i))
                 else:
-                    v_vn[face[0][i]] = [(Object.vn[face[2]], findex, i)]
+                    v_vn[face[0][i]] = [(self.vn[face[2]], findex, i)]
         for vns in v_vn.values():
             avg = average_many_vectors_v3d(vns)
             for vn_fi_i in vns:
@@ -274,10 +297,108 @@ class Object:
             self.svn.append(avg)
 
 
+    def set_position(self, x, y, z):
+        for index in range(len(self.v)):
+            self.v[index][0] -= self.center[0]
+            self.v[index][1] -= self.center[1]
+            self.v[index][2] -= self.center[2]
+        self.center = [x, y, z]
+        for index in range(len(self.v)):
+            self.v[index][0] += self.center[0]
+            self.v[index][1] += self.center[1]
+            self.v[index][2] += self.center[2]
+
+
+    def rotate(self, axis, degree):
+        for index in range(len(self.v)):
+            self.v[index][0] -= self.center[0]
+            self.v[index][1] -= self.center[1]
+            self.v[index][2] -= self.center[2]
+
+        theta = -degree * pi / 180
+        if axis in (0, "x"):
+            rotation = (
+                (1, 0, 0,),
+                (0, cos(theta), -sin(theta),),
+                (0, sin(theta), cos(theta),),
+            )
+            self.x_r += degree
+            self.rotation = (
+                (self.rotation[0][0], self.rotation[0][1] * rotation[1][1] + self.rotation[0][2] * rotation[1][2], self.rotation[0][1] * rotation[2][1] + self.rotation[0][2] * rotation[2][2],),
+                (self.rotation[1][0], self.rotation[1][1] * rotation[1][1] + self.rotation[1][2] * rotation[1][2], self.rotation[1][1] * rotation[2][1] + self.rotation[1][2] * rotation[2][2],),
+                (self.rotation[2][0], self.rotation[2][1] * rotation[1][1] + self.rotation[2][2] * rotation[1][2], self.rotation[2][1] * rotation[2][1] + self.rotation[2][2] * rotation[2][2],),
+            )
+            for index, vertex in enumerate(self.v):
+                self.v[index] = [
+                    vertex[0],
+                    vertex[1] * rotation[1][1] + vertex[2] * rotation[1][2],
+                    vertex[1] * rotation[2][1] + vertex[2] * rotation[2][2],
+                ]
+            for index, normal in enumerate(self.vn):
+                self.vn[index] = [
+                    normal[0],
+                    normal[1] * rotation[1][1] + normal[2] * rotation[1][2],
+                    normal[1] * rotation[2][1] + normal[2] * rotation[2][2],
+                ]    
+        elif axis in (1, "y"):
+            rotation = (
+                (cos(theta), 0, sin(theta),),
+                (0, 1, 0,),
+                (-sin(theta), 0, cos(theta),),
+            )
+            self.y_r += degree
+            self.rotation = (
+                (self.rotation[0][0] * rotation[0][0] + self.rotation[0][2] * rotation[0][2], self.rotation[0][1], self.rotation[0][0] * rotation[2][0] + self.rotation[0][2] * rotation[2][2],),
+                (self.rotation[1][0] * rotation[0][0] + self.rotation[1][2] * rotation[0][2], self.rotation[1][1], self.rotation[1][0] * rotation[2][0] + self.rotation[1][2] * rotation[2][2],),
+                (self.rotation[2][0] * rotation[0][0] + self.rotation[2][2] * rotation[0][2], self.rotation[2][1], self.rotation[2][0] * rotation[2][0] + self.rotation[2][2] * rotation[2][2],),
+            )
+            for index, vertex in enumerate(self.v):
+                self.v[index] = [
+                    vertex[0] * rotation[0][0]  + vertex[2] * rotation[0][2],
+                    vertex[1],
+                    vertex[0] * rotation[2][0] + vertex[2] * rotation[2][2],
+                ]
+            for index, normal in enumerate(self.vn):
+                self.vn[index] = [
+                    normal[0] * rotation[0][0]  + normal[2] * rotation[0][2],
+                    normal[1],
+                    normal[0] * rotation[2][0] + normal[2] * rotation[2][2],
+                ]    
+        elif axis in (2, "z"):
+            rotation = (
+                (cos(theta), -sin(theta), 0,),
+                (sin(theta), cos(theta), 0,),
+                (0, 0, 1),
+            )
+            self.z_r += degree
+            self.rotation = (
+                (self.rotation[0][0] * rotation[0][0] + self.rotation[0][1] * rotation[0][1], self.rotation[0][0] * rotation[1][0] + self.rotation[0][1] * rotation[1][1], self.rotation[0][2],),
+                (self.rotation[1][0] * rotation[0][0] + self.rotation[1][1] * rotation[0][1], self.rotation[1][0] * rotation[1][0] + self.rotation[1][1] * rotation[1][1], self.rotation[1][2],),
+                (self.rotation[2][0] * rotation[0][0] + self.rotation[2][1] * rotation[0][1], self.rotation[2][0] * rotation[1][0] + self.rotation[2][1] * rotation[1][1], self.rotation[2][2],),
+            )
+            for index, vertex in enumerate(self.v):
+                self.v[index] = [
+                    vertex[0] * rotation[0][0] + vertex[1] * rotation[0][1],
+                    vertex[0] * rotation[1][0] + vertex[1] * rotation[1][1],
+                    vertex[2],
+                ]
+            for index, normal in enumerate(self.vn):
+                self.vn[index] = [
+                    normal[0] * rotation[0][0] + normal[1] * rotation[0][1],
+                    normal[0] * rotation[1][0] + normal[1] * rotation[1][1],
+                    normal[2],
+                ] 
+
+        for index in range(len(self.v)):
+            self.v[index][0] += self.center[0]
+            self.v[index][1] += self.center[1]
+            self.v[index][2] += self.center[2]
+
 
 class Material:
     def __init__(self, name:str) -> None:
         self.name = name
+        self.texture = None
         self.normal_map = None
         self.texture_path = None
         self.normal_map_path = None
@@ -309,11 +430,15 @@ class Material:
                                   "WARNING: TEXTURE FILE NO FOUND.\n")
                             sleep(2)
                         else:
-                            # CodeUndone The line can be delete
-                            # current_material.texture = png.Png(img, "")
-                            # store the image in pickle
-                            png.Png(img, "")
+                            current_material.texture = png.Png(img, "")
                             current_material.texture_path = img
+                            # width and height will be used in uv mapping
+                            # u/v * width/height
+                            # if not substracted by 1, 
+                            # the index will be out of range when u/v == 1
+                            current_material.texture.width -= 1
+                            current_material.texture.height -= 1
+
                     # Relative path
                     else:
                         if not isfile(dir + img):
@@ -321,9 +446,15 @@ class Material:
                                 "WARNING: TEXTURE FILE NO FOUND.\n")
                             sleep(2)
                         else:
-                            if not isfile(dir + img[:-4] + ".pickle"):
-                                current_material.texture = png.Png(img, dir)
+                            current_material.texture = png.Png(img, dir)
                             current_material.texture_path = dir + img
+                            # width and height will be used in uv mapping
+                            # u/v * width/height
+                            # if not substracted by 1, 
+                            # the index will be out of range when u/v == 1
+                            current_material.texture.width -= 1
+                            current_material.texture.height -= 1
+                    
                     
                 elif (line.lower().startswith("map_bump ") or 
                       line.lower().startswith("bump ")):
@@ -337,6 +468,12 @@ class Material:
                         else:
                             current_material.normal_map = png.Png(img, "")
                             current_material.normal_map_path = img
+                            # width and height will be used in uv mapping
+                            # u/v * width/height
+                            # if not substracted by 1, 
+                            # the index will be out of range when u/v == 1
+                            current_material.normal_map.width -= 1
+                            current_material.normal_map.height -= 1
                     # Relative path
                     else:
                         if not isfile(dir + img):
@@ -346,12 +483,42 @@ class Material:
                         else:
                             current_material.normal_map = png.Png(img, dir)
                             current_material.normal_map_path = dir + img
+                            # width and height will be used in uv mapping
+                            # u/v * width/height
+                            # if not substracted by 1, 
+                            # the index will be out of range when u/v == 1
+                            current_material.normal_map.width -= 1
+                            current_material.normal_map.height -= 1
                 # There are other informations such as ambient value, transparancy
                 # values that are not supported in the renderer (partially due to the
                 # fact that I myself don't even know what they are exactly), 
                 # so they will not be loaded
         return True
 
+
+    def change_texture(self, file_path):
+        img = file_path.replace("\\", "/")
+        # Absolute path
+        if not isfile(img):
+            print("\033[1;31m" +
+                    "WARNING: TEXTURE FILE NO FOUND.\n")
+            sleep(2)
+        else:
+            self.texture = png.Png(img, "")
+            self.texture_path = img
+            # width and height will be used in uv mapping
+            # u/v * width/height
+            # if not substracted by 1, 
+            # the index will be out of range when u/v == 1
+            self.texture.width -= 1
+            self.texture.height -= 1
+    
+    def load_img(self):
+        if self.texture_path:
+            self.texture = png.Png(self.texture_path, "")
+        if self.normal_map_path:
+            self.normal_map = png.Png(self.normal_map_path, "")
+        
 
 
 class Light:
@@ -365,12 +532,17 @@ class Light:
     #     Light,
     #  ), ...]
     shadow_maps = []
-    # 0 resolution  1 z_near    2 z_far 3 rendering_plane_z(half-resolution)
-    shadow_properties = (512, 0.01, 100, 256)
-    def __init__(self, position, strength=(1, 1, 1), direction=None, type=1) -> None:
-        self.x, self.y, self.z = position
-        self.r, self.g, self.b = strength
-        if type == 0 and direction == None:
+    types_lookup = ("parallel", "point", "spot")
+    # 0 resolution  
+    # 1 z_near    
+    # 2 z_far 
+    # 3 rendering_plane_z 
+    # 4 half resolition
+    # 5 squared half resolution
+    shadow_properties = (512, 0.01, 320, 256, 256, 256, 65536)
+    def __init__(self, position, strength=(1, 1, 1), direction=None, size=60, type=1) -> None:
+        
+        if type in (0, 2) and direction == None:
             raise Exception("Parallel light source (type 0) requires direction")
         if type == 1:
             self.dirx = None
@@ -388,6 +560,7 @@ class Light:
             self.rotation4 = None
             self.rotation5 = None
             self.rotation6 = None
+            self.size = None
         elif type == 0:
             self.dirx, self.diry, self.dirz = normalize_v3d(direction)
             self.dirx_in_cam = None
@@ -395,6 +568,18 @@ class Light:
             self.dirz_in_cam = None
             self.shadow_map0 = None
             self.rotation0 = None
+            self.size = None
+        elif type == 2:
+            self.dirx, self.diry, self.dirz = normalize_v3d(direction)
+            self.dirx_in_cam = None
+            self.diry_in_cam = None
+            self.dirz_in_cam = None
+            self.shadow_map0 = None
+            self.rotation0 = None
+            self.size = size
+            self.shadow_properties = self.shadow_properties[:3] + (self.shadow_properties[4] / tan(size * pi / 360),) + self.shadow_properties[4:]
+        self.x, self.y, self.z = position
+        self.r, self.g, self.b = strength
         self.type = type
         self.hidden = False
         self.shadow = True
@@ -402,6 +587,12 @@ class Light:
         self.y_in_cam = None
         self.z_in_cam = None
     
+
+    def __str__(self):
+        return (
+            f"{Light.types_lookup[self.type]:8} | Position: {self.x:.3f} {self.y:.3f}, {self.z:.3f}"
+        )
+
 
     def render_shadow(lights, objs) -> tuple:
         # CodeUndone VsCode
@@ -418,7 +609,7 @@ class Light:
                                                  height=light.shadow_properties[0],
                                                  z_near=light.shadow_properties[1],
                                                  z_far=light.shadow_properties[2],
-                                                 fov=90, mode=5))
+                                                 fov=90, mode=5, light=light))
                 _, _, light.shadow_map2 = render(objs, [], 
                                           Camera(x=light.x, y=light.y, z=light.z,
                                                  yaw=90, pitch=0,
@@ -426,7 +617,7 @@ class Light:
                                                  height=light.shadow_properties[0],
                                                  z_near=light.shadow_properties[1],
                                                  z_far=light.shadow_properties[2],
-                                                 fov=90, mode=5))
+                                                 fov=90, mode=5, light=light))
                 _, _, light.shadow_map3 = render(objs, [], 
                                           Camera(x=light.x, y=light.y, z=light.z,
                                                  yaw=180, pitch=0,
@@ -434,7 +625,7 @@ class Light:
                                                  height=light.shadow_properties[0],
                                                  z_near=light.shadow_properties[1],
                                                  z_far=light.shadow_properties[2],
-                                                 fov=90, mode=5))
+                                                 fov=90, mode=5, light=light))
                 _, _, light.shadow_map4 = render(objs, [], 
                                           Camera(x=light.x, y=light.y, z=light.z,
                                                  yaw=270, pitch=0,
@@ -442,7 +633,7 @@ class Light:
                                                  height=light.shadow_properties[0],
                                                  z_near=light.shadow_properties[1],
                                                  z_far=light.shadow_properties[2],
-                                                 fov=90, mode=5))
+                                                 fov=90, mode=5, light=light))
                 _, _, light.shadow_map5 = render(objs, [], 
                                           Camera(x=light.x, y=light.y, z=light.z,
                                                  yaw=90, pitch=90,
@@ -450,7 +641,7 @@ class Light:
                                                  height=light.shadow_properties[0],
                                                  z_near=light.shadow_properties[1],
                                                  z_far=light.shadow_properties[2],
-                                                 fov=90, mode=5))
+                                                 fov=90, mode=5, light=light))
                 _, _, light.shadow_map6 = render(objs, [], 
                                           Camera(x=light.x, y=light.y, z=light.z,
                                                  yaw=90, pitch=-90,
@@ -458,7 +649,7 @@ class Light:
                                                  height=light.shadow_properties[0],
                                                  z_near=light.shadow_properties[1],
                                                  z_far=light.shadow_properties[2],
-                                                 fov=90, mode=5))
+                                                 fov=90, mode=5, light=light))
                 
             elif light.type == 0:
                 if abs(light.diry) == 1:
@@ -473,8 +664,22 @@ class Light:
                                         height=light.shadow_properties[0],
                                         z_near=light.shadow_properties[1],
                                         z_far=light.shadow_properties[2],
-                                        fov=90, mode=5)
+                                        fov=90, mode=5, light=light)
                                 )
+            elif light.type == 2:
+                if abs(light.diry) == 1:
+                    yaw = 90
+                else:
+                    yaw = asin(light.dirx / sqrt(1 - light.diry * light.diry)) + 90
+                _, _, light.shadow_map0 = render(objs, [], 
+                                    Camera(x=light.x, y=light.y, z=light.z, 
+                                        yaw=yaw, pitch=asin(light.diry) * 180 / pi,
+                                        width=light.shadow_properties[0],
+                                        height=light.shadow_properties[0],
+                                        z_near=light.shadow_properties[1],
+                                        z_far=light.shadow_properties[2],
+                                        fov=light.size, mode=5, light=light)
+                            )
     
 
     def update_rotation(self, cam):
@@ -528,19 +733,13 @@ class Light:
                 ( cam.rotation[0][2],  cam.rotation[1][2],  cam.rotation[2][2],),
                 (-cam.rotation[0][1], -cam.rotation[1][1], -cam.rotation[2][1],),
             )
-        elif self.type == 0:
+        elif self.type in (0, 2):
             if abs(self.diry) != 1:
                 xx = sqrt(self.dirz*self.dirz / (self.dirx*self.dirx + self.dirz*self.dirz))
                 xz = -self.dirx * xx / self.dirz
             else:
                 xx = 1
                 xz = 0
-            # rotation = ((xx, 0, xz), 
-            #             (-xz * self.diry, xz * self.dirx - xx * self.dirz, xx * self.diry),
-            #             (self.dirx, self.diry, self.dirz))
-            # yx = -xz * self.diry
-            # yy = xz * self.dirx - xx * self.dirz
-            # yz = xx * self.diry
             yx = xz * self.diry
             yy = xx * self.dirz - xz * self.dirx
             yz = - xx * self.diry
@@ -556,6 +755,7 @@ class Light:
                  self.dirx * cam.rotation[2][0] + self.diry * cam.rotation[2][1] + self.dirz * cam.rotation[2][2],),
             ) 
 
+        
         
 class Camera:
     modes_look_up = (
@@ -574,10 +774,11 @@ class Camera:
                  yaw=90, pitch=0, roll=0,
                  width=None, height=None,
                  z_near=0.05, z_far=100,
-                 fov=100,
-                 fxaa=True,
-                 obj_buffer = False,
-                 mode=0) -> None:
+                 fov=75,
+                 fxaa=False,
+                 obj_buffer = True,
+                 mode=0,
+                 light=None) -> None:
         self.x = float(x)
         self.y = float(y)
         self.z = float(z)
@@ -597,6 +798,7 @@ class Camera:
         else:
             self.obj_buffer = obj_buffer
         self.mode = mode
+        self.light = light
         self.rotation = self.get_rotation_mat()
         self.rendering_plane_z = self.width * 0.5 / tan(fov * pi / 360)
     
@@ -640,6 +842,10 @@ class Camera:
                             "with reserved spaced applied.\n" + 
                             f"width:{width}   height:{height}")
         return width, height
+    
+    def update_width_and_height(self, width=None, height=None, width_reserved=2, height_reserved=4):
+        self.width, self.height = self.get_width_and_height(width, height, width_reserved, height_reserved)
+        self.rendering_plane_z = self.width * 0.5 / tan(self.fov * pi / 360)
 
 
     def rotate(self, yaw=0, pitch=0, roll=0):
@@ -703,8 +909,8 @@ def render(objects:list, lights:list, cam:Camera):
                 x_light * light.rotation1[2][0] + y_light * light.rotation1[2][1] + z_light * light.rotation1[2][2],
             )
             if z_light1 > light.shadow_properties[1]:
-                x2d = light.shadow_properties[0] // 2 + int(x_light1 * light.shadow_properties[3] / z_light1)
-                y2d = light.shadow_properties[0] // 2 - int(y_light1 * light.shadow_properties[3] / z_light1)
+                x2d = light.shadow_properties[4] + int(x_light1 * light.shadow_properties[3] / z_light1)
+                y2d = light.shadow_properties[4] - int(y_light1 * light.shadow_properties[3] / z_light1)
                 if 0 <= x2d < light.shadow_properties[0] and 0 <= y2d < light.shadow_properties[0]:
                     bias = (1 - (light.rotation1[2][0] * normal[0] + light.rotation1[2][1] * normal[1] + light.rotation1[2][2] * normal[2])) * (cam.z_far - cam.z_near) * bias_scalar * 0.001
                     if z_light1 > light.shadow_map1[y2d][x2d] + bias:
@@ -716,8 +922,8 @@ def render(objects:list, lights:list, cam:Camera):
                 x_light * light.rotation2[2][0] + y_light * light.rotation2[2][1] + z_light * light.rotation2[2][2],
             )
             if z_light2 > light.shadow_properties[1]:
-                x2d = light.shadow_properties[0] // 2 + int(x_light2 * light.shadow_properties[3] / z_light2)
-                y2d = light.shadow_properties[0] // 2 - int(y_light2 * light.shadow_properties[3] / z_light2)
+                x2d = light.shadow_properties[4] + int(x_light2 * light.shadow_properties[3] / z_light2)
+                y2d = light.shadow_properties[4] - int(y_light2 * light.shadow_properties[3] / z_light2)
                 if 0 <= x2d < light.shadow_properties[0] and 0 <= y2d < light.shadow_properties[0]:
                     bias = (1 - (light.rotation2[2][0] * normal[0] + light.rotation2[2][1] * normal[1] + light.rotation2[2][2] * normal[2])) * (cam.z_far - cam.z_near) * bias_scalar * 0.001
                     if z_light2 > light.shadow_map2[y2d][x2d] + bias:
@@ -729,8 +935,8 @@ def render(objects:list, lights:list, cam:Camera):
                 x_light * light.rotation3[2][0] + y_light * light.rotation3[2][1] + z_light * light.rotation3[2][2],
             )
             if z_light3 > light.shadow_properties[1]:
-                x2d = light.shadow_properties[0] // 2 + int(x_light3 * light.shadow_properties[3] / z_light3)
-                y2d = light.shadow_properties[0] // 2 - int(y_light3 * light.shadow_properties[3] / z_light3)
+                x2d = light.shadow_properties[4] + int(x_light3 * light.shadow_properties[3] / z_light3)
+                y2d = light.shadow_properties[4] - int(y_light3 * light.shadow_properties[3] / z_light3)
                 if 0 <= x2d < light.shadow_properties[0] and 0 <= y2d < light.shadow_properties[0]:
                     bias = (1 - (light.rotation3[2][0] * normal[0] + light.rotation3[2][1] * normal[1] + light.rotation3[2][2] * normal[2])) * (cam.z_far - cam.z_near) * bias_scalar * 0.001
                     if z_light3 > light.shadow_map3[y2d][x2d] + bias:
@@ -742,8 +948,8 @@ def render(objects:list, lights:list, cam:Camera):
                 x_light * light.rotation4[2][0] + y_light * light.rotation4[2][1] + z_light * light.rotation4[2][2],
             )
             if z_light4 > light.shadow_properties[1]:
-                x2d = light.shadow_properties[0] // 2 + int(x_light4 * light.shadow_properties[3] / z_light4)
-                y2d = light.shadow_properties[0] // 2 - int(y_light4 * light.shadow_properties[3] / z_light4)
+                x2d = light.shadow_properties[4] + int(x_light4 * light.shadow_properties[3] / z_light4)
+                y2d = light.shadow_properties[4] - int(y_light4 * light.shadow_properties[3] / z_light4)
                 if 0 <= x2d < light.shadow_properties[0] and 0 <= y2d < light.shadow_properties[0]:
                     bias = (1 - (light.rotation4[2][0] * normal[0] + light.rotation4[2][1] * normal[1] + light.rotation4[2][2] * normal[2])) * (cam.z_far - cam.z_near) * bias_scalar * 0.001
                     if z_light4 > light.shadow_map4[y2d][x2d] + bias:
@@ -755,8 +961,8 @@ def render(objects:list, lights:list, cam:Camera):
                 x_light * light.rotation5[2][0] + y_light * light.rotation5[2][1] + z_light * light.rotation5[2][2],
             )
             if z_light5 > light.shadow_properties[1]:
-                x2d = light.shadow_properties[0] // 2 + int(x_light5 * light.shadow_properties[3] / z_light5)
-                y2d = light.shadow_properties[0] // 2 - int(y_light5 * light.shadow_properties[3] / z_light5)
+                x2d = light.shadow_properties[4] + int(x_light5 * light.shadow_properties[3] / z_light5)
+                y2d = light.shadow_properties[4] - int(y_light5 * light.shadow_properties[3] / z_light5)
                 if 0 <= x2d < light.shadow_properties[0] and 0 <= y2d < light.shadow_properties[0]:
                     bias = (1 - (light.rotation5[2][0] * normal[0] + light.rotation5[2][1] * normal[1] + light.rotation5[2][2] * normal[2])) * (cam.z_far - cam.z_near) * bias_scalar * 0.001
                     if z_light5 > light.shadow_map5[y2d][x2d] + bias:
@@ -768,8 +974,8 @@ def render(objects:list, lights:list, cam:Camera):
                 x_light * light.rotation6[2][0] + y_light * light.rotation6[2][1] + z_light * light.rotation6[2][2],
             )
             if z_light6 > light.shadow_properties[1]:
-                x2d = light.shadow_properties[0] // 2 + int(x_light6 * light.shadow_properties[3] / z_light6)
-                y2d = light.shadow_properties[0] // 2 - int(y_light6 * light.shadow_properties[3] / z_light6)
+                x2d = light.shadow_properties[4] + int(x_light6 * light.shadow_properties[3] / z_light6)
+                y2d = light.shadow_properties[4] - int(y_light6 * light.shadow_properties[3] / z_light6)
                 if 0 <= x2d < light.shadow_properties[0] and 0 <= y2d < light.shadow_properties[0]:
                     bias = (1 - (light.rotation6[2][0] * normal[0] + light.rotation6[2][1] * normal[1] + light.rotation6[2][2] * normal[2])) * (cam.z_far - cam.z_near) * bias_scalar * 0.001
                     if z_light6 > light.shadow_map6[y2d][x2d] + bias:
@@ -786,6 +992,48 @@ def render(objects:list, lights:list, cam:Camera):
         for light in Light.lights:
             if light.hidden:
                 continue
+
+            if light.shadow and obj.shadow:
+                if light.type == 0 and light.shadow_map0 != None:
+                    x_light = x3d - light.x_in_cam
+                    y_light = y3d - light.y_in_cam
+                    z_light = z3d - light.z_in_cam
+                    x_light, y_light, z_light = (
+                        x_light * light.rotation0[0][0] + y_light * light.rotation0[0][1] + z_light * light.rotation0[0][2],
+                        x_light * light.rotation0[1][0] + y_light * light.rotation0[1][1] + z_light * light.rotation0[1][2],
+                        x_light * light.rotation0[2][0] + y_light * light.rotation0[2][1] + z_light * light.rotation0[2][2],
+                    )
+                    x2d = light.shadow_properties[4] + int(x_light * 10)
+                    y2d = light.shadow_properties[4] - int(y_light * 10)
+                    if 0 <= x2d < light.shadow_properties[0] and 0 <= y2d < light.shadow_properties[0]:
+                        bias = (1 - (light.rotation0[2][0] * normal[0] + light.rotation0[2][1] * normal[1] + light.rotation0[2][2] * normal[2])) * bias_scalar
+                        if z_light > light.shadow_map0[y2d][x2d] + bias:
+                            continue
+                elif light.type == 1 and light.shadow_map1 != None:
+                    x_light = x3d - light.x_in_cam
+                    y_light = y3d - light.y_in_cam
+                    z_light = z3d - light.z_in_cam
+                    if in_point_light_shadow():
+                        continue
+                elif light.type == 2 and light.shadow_map0 != None:
+                    x_light = x3d - light.x_in_cam
+                    y_light = y3d - light.y_in_cam
+                    z_light = z3d - light.z_in_cam
+                    x_light, y_light, z_light = (
+                        x_light * light.rotation0[0][0] + y_light * light.rotation0[0][1] + z_light * light.rotation0[0][2],
+                        x_light * light.rotation0[1][0] + y_light * light.rotation0[1][1] + z_light * light.rotation0[1][2],
+                        x_light * light.rotation0[2][0] + y_light * light.rotation0[2][1] + z_light * light.rotation0[2][2],
+                    )
+                    if z_light > light.shadow_properties[1]:
+                        x2d = light.shadow_properties[4] + int(x_light * light.shadow_properties[3] / z_light)
+                        y2d = light.shadow_properties[4] - int(y_light * light.shadow_properties[3] / z_light)
+                        if 0 <= x2d < light.shadow_properties[0] and 0 <= y2d < light.shadow_properties[0]:
+                            bias = (1 - (light.rotation0[2][0] * normal[0] + light.rotation0[2][1] * normal[1] + light.rotation0[2][2] * normal[2])) * (cam.z_far - cam.z_near) * bias_scalar * 0.001
+                            if z_light > light.shadow_map0[y2d][x2d] + bias:
+                                continue
+                    else:
+                        continue
+                        
             if light.type == 0:
                 # normalize b to 0-1
                 b = - ((light.dirx_in_cam * normal[0] + 
@@ -794,23 +1042,12 @@ def render(objects:list, lights:list, cam:Camera):
                 luminance[0] += light.r * b
                 luminance[1] += light.g * b
                 luminance[2] += light.b * b
-            else:    # light.type == 1
+            elif light.type == 1:
                 direction = (
                     light.x_in_cam - x3d,
                     light.y_in_cam - y3d,
                     light.z_in_cam - z3d,
                 )
-                # length_2 = direction[0]**2 + direction[1]**2 + direction[2]**2
-                # b = max(0, 
-                #         (
-                #             (
-                #                 direction[0] * normal[0] + 
-                #                 direction[1] * normal[1] +
-                #                 direction[2] * normal[2]
-                #             )
-                #         ) / 
-                #         length_2
-                #     )
                 length = sqrt(direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2])
                 b = max(0, 
                         (
@@ -826,41 +1063,35 @@ def render(objects:list, lights:list, cam:Camera):
                 luminance[0] += light.r * b
                 luminance[1] += light.g * b
                 luminance[2] += light.b * b
+            elif light.type == 2:
+                direction = (
+                    light.x_in_cam - x3d,
+                    light.y_in_cam - y3d,
+                    light.z_in_cam - z3d,
+                )
+                length = sqrt(direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2])
+                direction = (
+                    direction[0] / length,
+                    direction[1] / length,
+                    direction[2] / length,
+                )
+                if direction[0] * light.rotation0[2][0] + direction[1] * light.rotation0[2][1] + direction[2] * light.rotation0[2][2] < -cos(light.size * pi / 360):
+                    b = max(0, 
+                            (
+                                (
+                                    direction[0] * normal[0] + 
+                                    direction[1] * normal[1] +
+                                    direction[2] * normal[2]
+                                )
+                            ) / 
+                            (length * length)
+                        )
+                    
+                    luminance[0] += light.r * b
+                    luminance[1] += light.g * b
+                    luminance[2] += light.b * b
             
-            if obj.shadow and light.shadow:
-                if light.type == 0 and light.shadow_map0 != None:
-                    # CodeUndone Debug
-                    # return [
-                    #     (x3d + 50) / 100,
-                    #     (y3d + 50) / 100,
-                    #     0, 0, 
-                    #     # (cam.z_far - z3d) / (cam.z_far - cam.z_near)
-                    #     ]
-                    x_light = x3d - light.x_in_cam
-                    y_light = y3d - light.y_in_cam
-                    z_light = z3d - light.z_in_cam
-                    x_light, y_light, z_light = (
-                        x_light * light.rotation0[0][0] + y_light * light.rotation0[0][1] + z_light * light.rotation0[0][2],
-                        x_light * light.rotation0[1][0] + y_light * light.rotation0[1][1] + z_light * light.rotation0[1][2],
-                        x_light * light.rotation0[2][0] + y_light * light.rotation0[2][1] + z_light * light.rotation0[2][2],
-                    )
-                    x2d = light.shadow_properties[0] // 2 + int(x_light * 10)
-                    y2d = light.shadow_properties[0] // 2 - int(y_light * 10)
-                    if 0 <= x2d < light.shadow_properties[0] and 0 <= y2d < light.shadow_properties[0]:
-                        bias = (1 - (light.rotation0[2][0] * normal[0] + light.rotation0[2][1] * normal[1] + light.rotation0[2][2] * normal[2])) * bias_scalar
-                        if z_light > light.shadow_map0[y2d][x2d] + bias:
-                        # if z_light > light.shadow_map0[y2d][x2d]:
-                            luminance =  [luminance[0] - 0.5 if luminance[0] > 0.5 else 0,
-                                          luminance[1] - 0.5 if luminance[1] > 0.5 else 0,
-                                          luminance[2] - 0.5 if luminance[2] > 0.5 else 0,]
-                elif light.type == 1 and light.shadow_map1 != None:
-                    x_light = x3d - light.x_in_cam
-                    y_light = y3d - light.y_in_cam
-                    z_light = z3d - light.z_in_cam
-                    if in_point_light_shadow():
-                        luminance =  [luminance[0] - 0.5 if luminance[0] > 0.5 else 0,
-                                      luminance[1] - 0.5 if luminance[1] > 0.5 else 0,
-                                      luminance[2] - 0.5 if luminance[2] > 0.5 else 0,]
+            
 
         return luminance
     
@@ -914,6 +1145,9 @@ def render(objects:list, lights:list, cam:Camera):
                     if cam.obj_buffer:
                         obj_buffer[y][x] = obj
                     depth_buffer[y][x] = z3d
+                    # calculate the light
+                    x3d = (p2 * left[0] + p1 * right[0]) * z3d
+                    y3d = (p2 * left[1] + p1 * right[1]) * z3d
                     if obj.shade_smooth:
                         normal = (
                             p2 * left[5] + p1 * right[5],
@@ -922,24 +1156,12 @@ def render(objects:list, lights:list, cam:Camera):
                         )
                         length = sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2])
                         normal = (normal[0]/length, normal[1]/length, normal[2]/length)
-                    # calculate the light
-                    dominator_reciprocal = 1 / (p2 * left[2] + p1 * right[2])
-                    x3d = (p2 * left[0] + p1 * right[0]) * dominator_reciprocal
-                    y3d = (p2 * left[1] + p1 * right[1]) * dominator_reciprocal
 
                     luminance = get_luminance(normal, x3d, y3d, z3d)
                     frame[y][x] = (min(int(127 * luminance[0]), 255), 
                                    min(int(127 * luminance[1]), 255), 
                                    min(int(127 * luminance[2]), 255))
-                # CodeUndone 
-                # For debug, delete it
-                # else:
-                #     luminance = max(int((cam.z_far - z3d * 10) / (cam.z_far - cam.z_near) * 255), 14)
-                #     frame[y][x] = (
-                #         luminance,
-                #         luminance,
-                #         0
-                #     )
+                
         # Sorting by y, from lowest to highest in value but from top to bottom in what u see
         if A[9] > B[9]:
             A, B = B, A
@@ -1283,7 +1505,19 @@ def render(objects:list, lights:list, cam:Camera):
                     if cam.obj_buffer:
                         obj_buffer[y][x] = obj
                     depth_buffer[y][x] = z3d
-                    if obj.shade_smooth:
+                    # calculate the light
+                    x3d = (p2 * left[0] + p1 * right[0]) * z3d
+                    y3d = (p2 * left[1] + p1 * right[1]) * z3d
+                    u = (p2 * left[3] + p1 * right[3]) * z3d
+                    v = (p2 * left[4] + p1 * right[4]) * z3d
+
+                    color = obj.mtl.texture.pixels[int(v * obj.mtl.texture.height)][int(u * obj.mtl.texture.width)]
+                    if obj.hasnormal_map:
+                        normal = obj.mtl.normal_map.pixels[int(v * obj.mtl.normal_map.height)][int(u * obj.mtl.normal_map.width)]
+                        normal = (2 * normal[0] / 255 - 1,
+                                  2 * normal[1] / 255 - 1,
+                                  2 * normal[2] / 255 - 1)
+                    elif obj.shade_smooth:
                         normal = (
                             p2 * left[5] + p1 * right[5],
                             p2 * left[6] + p1 * right[6],
@@ -1291,24 +1525,22 @@ def render(objects:list, lights:list, cam:Camera):
                         )
                         length = sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2])
                         normal = (normal[0]/length, normal[1]/length, normal[2]/length)
-                    # calculate the light
-                    dominator_reciprocal = 1 / (p2 * left[2] + p1 * right[2])
-                    x3d = (p2 * left[0] + p1 * right[0]) * dominator_reciprocal
-                    y3d = (p2 * left[1] + p1 * right[1]) * dominator_reciprocal
 
                     luminance = get_luminance(normal, x3d, y3d, z3d)
-                    frame[y][x] = (min(int(127 * luminance[0]), 255), 
-                                   min(int(127 * luminance[1]), 255), 
-                                   min(int(127 * luminance[2]), 255))
-                # CodeUndone 
-                # For debug, delete it
-                # else:
-                #     luminance = max(int((cam.z_far - z3d * 10) / (cam.z_far - cam.z_near) * 255), 14)
-                #     frame[y][x] = (
-                #         luminance,
-                #         luminance,
-                #         0
-                #     )
+                    frame[y][x] = (min(int(color[0] * luminance[0]), 255), 
+                                   min(int(color[1] * luminance[1]), 255), 
+                                   min(int(color[2] * luminance[2]), 255))
+                    # frame[y][x] = (min(int(color[0]), 255), 
+                    #                min(int(color[1]), 255), 
+                    #                min(int(color[2]), 255))
+        
+        # Sorting by y, from lowest to highest in value but from top to bottom in what u see
+        if A[9] > B[9]:
+            A, B = B, A
+        if B[9] > C[9]:
+            B, C = C, B
+        if A[9] > B[9]:
+            A, B = B, A
         # Remove some of those out of screen
         if (A[9] >= cam.height or 
             C[9] < 0 or 
@@ -1339,6 +1571,7 @@ def render(objects:list, lights:list, cam:Camera):
             if A[8] > B[8]:
                 A, B = B, A
             if A[9] >= 0:
+                
                 line(normal, A, B, A[9])
 
             tAC = (A[8] - C[8]) / (A[9] - C[9])
@@ -1409,12 +1642,14 @@ def render(objects:list, lights:list, cam:Camera):
                 # because A is left to B and left is AC, right is BC
                 if left[8] > right[8]:
                     left, right = right, left
+                
                 line(normal, left, right, y)
 
         elif B[9] == C[9]:
             if B[8] > C[8]:
                 B, C = C, B
             if B[9] < cam.height:
+                
                 line(normal, B, C, B[9])
 
             tAB = (B[8] - A[8]) / (B[9] - A[9])
@@ -1462,8 +1697,8 @@ def render(objects:list, lights:list, cam:Camera):
                     left = (m2 * A[0] + m1 * B[0], 
                             m2 * A[1] + m1 * B[1], 
                             m2 * A[2] + m1 * B[2], 
-                            None, 
-                            None, 
+                            m2 * A[3] + m1 * B[3], 
+                            m2 * A[4] + m1 * B[4],
                             None, 
                             None, 
                             None, 
@@ -1473,8 +1708,8 @@ def render(objects:list, lights:list, cam:Camera):
                     right = (m2 * A[0] + m1 * C[0],
                             m2 * A[1] + m1 * C[1],
                             m2 * A[2] + m1 * C[2],
-                            None, 
-                            None, 
+                            m2 * A[3] + m1 * C[3],
+                            m2 * A[4] + m1 * C[4],
                             None, 
                             None, 
                             None, 
@@ -1485,6 +1720,7 @@ def render(objects:list, lights:list, cam:Camera):
                 # because A is left to B and left is AC, right is BC            
                 if left[8] > right[8]:
                     left, right = right, left
+                
                 line(normal, left, right, y)
         
         else:
@@ -1558,6 +1794,7 @@ def render(objects:list, lights:list, cam:Camera):
                 # because A is left to B and left is AC, right is BC            
                 if left[8] > right[8]:
                     left, right = right, left
+                
                 line(normal, left, right, y)
 
             tBC = (B[8] - C[8]) / (B[9] - C[9])
@@ -1628,7 +1865,262 @@ def render(objects:list, lights:list, cam:Camera):
                 # because A is left to B and left is AC, right is BC
                 if left[8] > right[8]:
                     left, right = right, left
+                
                 line(normal, left, right, y)
+
+
+    def texture(A, B, C):
+        def line(left, right, y):
+            # faster than max(...), min(...)
+            if left[8] <= 0:
+                x_start = 0
+            else:
+                x_start = left[8]
+            if right[8] >= cam.width - 1:
+                x_end = cam.width - 1
+            else:
+                x_end = right[8]
+
+            for x in range(x_start, x_end):
+                p1 = (x - left[8]) / (right[8] - left[8])
+                p2 = 1 - p1
+                z3d = 1 / (p2 * left[2] + p1 * right[2])
+                if z3d < depth_buffer[y][x]:
+                    if cam.obj_buffer:
+                        obj_buffer[y][x] = obj
+                    depth_buffer[y][x] = z3d
+                    # calculate the light
+                    u = (p2 * left[3] + p1 * right[3]) * z3d
+                    v = (p2 * left[4] + p1 * right[4]) * z3d
+                    frame[y][x] = obj.mtl.texture.pixels[int(v * obj.mtl.texture.height)][int(u * obj.mtl.texture.width)]
+        
+        # Sorting by y, from lowest to highest in value but from top to bottom in what u see
+        if A[9] > B[9]:
+            A, B = B, A
+        if B[9] > C[9]:
+            B, C = C, B
+        if A[9] > B[9]:
+            A, B = B, A
+        # Remove some of those out of screen
+        if (A[9] >= cam.height or 
+            C[9] < 0 or 
+            A[9] == C[9] or
+            A[8] < 0 and B[8] < 0 and C[8] < 0 or
+            A[8] >= cam.width and B[8] >= cam.width and C[8] >= cam.width):
+            return
+        # use the v / z3d for x3d, y3d, u, v, and transform z3d to its reciprocal, 1 / z3d
+        # the order 20134 is because mutiplication is faster than division
+        A[2] = 1 / A[2]
+        A[3] = A[3] * A[2]
+        A[4] = A[4] * A[2]
+        B[2] = 1 / B[2]
+        B[3] = B[3] * B[2]
+        B[4] = B[4] * B[2]
+        C[2] = 1 / C[2]
+        C[3] = C[3] * C[2]
+        C[4] = C[4] * C[2]
+
+    
+        if A[9] == B[9]:
+            if A[8] > B[8]:
+                A, B = B, A
+            if A[9] >= 0:
+                
+                line(A, B, A[9])
+
+            tAC = (A[8] - C[8]) / (A[9] - C[9])
+            bAC = A[8] - A[9] * tAC
+            tBC = (B[8] - C[8]) / (B[9] - C[9])
+            bBC = B[8] - B[9] * tBC
+
+            if B[9] <= 0:
+                y_start = 0
+            else:
+                y_start = B[9]
+            if C[9] >= cam.height - 1:
+                y_end = cam.height - 1
+            else:
+                y_end = C[9]
+            for y in range(y_start, y_end):
+                m1 = (y - A[9]) / (C[9] - A[9])
+                m2 = 1 - m1
+                # x, z, u, v, 0, 0, 0, x2d, y2d
+                left = (None,
+                        None,
+                        m2 * A[2] + m1 * C[2], 
+                        m2 * A[3] + m1 * C[3], 
+                        m2 * A[4] + m1 * C[4], 
+                        None, 
+                        None, 
+                        None, 
+                        int(tAC * y + bAC),
+                        y, 
+                        )            
+                right = (None,
+                        None,
+                        m2 * B[2] + m1 * C[2],
+                        m2 * B[3] + m1 * C[3],
+                        m2 * B[4] + m1 * C[4],
+                        None, 
+                        None, 
+                        None, 
+                        int(tBC * y + bBC),
+                        y, 
+                        )
+                # CodeUndone Should be unnecessary to check left and right
+                # because A is left to B and left is AC, right is BC
+                if left[8] > right[8]:
+                    left, right = right, left
+                
+                line(left, right, y)
+
+        elif B[9] == C[9]:
+            if B[8] > C[8]:
+                B, C = C, B
+            if B[9] < cam.height:
+                
+                line(B, C, B[9])
+
+            tAB = (B[8] - A[8]) / (B[9] - A[9])
+            bAB = B[8] - B[9] * tAB
+            tAC = (A[8] - C[8]) / (A[9] - C[9])
+            bAC = A[8] - A[9] * tAC
+
+            if A[9] <= 0:
+                y_start = 0
+            else:
+                y_start = A[9]
+            if B[9] >= cam.height - 1:
+                y_end = cam.height - 1
+            else:
+                y_end = B[9]
+            for y in range(y_start, y_end):
+                m1 = (y - A[9]) / (B[9] - A[9])
+                m2 = 1 - m1
+                # x, z, u, v, 0, 0, 0, x2d, y2d
+                left = (None,
+                        None, 
+                        m2 * A[2] + m1 * B[2], 
+                        m2 * A[3] + m1 * B[3], 
+                        m2 * A[4] + m1 * B[4],
+                        None, 
+                        None, 
+                        None, 
+                        int(tAB * y + bAB),
+                        y, 
+                        )            
+                right = (None,
+                        None,
+                        m2 * A[2] + m1 * C[2],
+                        m2 * A[3] + m1 * C[3],
+                        m2 * A[4] + m1 * C[4],
+                        None, 
+                        None, 
+                        None, 
+                        int(tAC * y + bAC),
+                        y, 
+                        )
+                # CodeUndone Should be unnecessary to check left and right
+                # because A is left to B and left is AC, right is BC            
+                if left[8] > right[8]:
+                    left, right = right, left
+                
+                line(left, right, y)
+        
+        else:
+            tAC = (A[8] - C[8]) / (A[9] - C[9])
+            bAC = A[8] - A[9] * tAC
+            tAB = (A[8] - B[8]) / (A[9] - B[9])
+            bAB = A[8] - A[9] * tAB
+
+            if A[9] <= 0:
+                y_start = 0
+            else:
+                y_start = A[9]
+            if B[9] >= cam.height - 1:
+                y_end = cam.height - 1
+            else:
+                y_end = B[9]
+            for y in range(y_start, y_end):
+                m1 = (y - A[9]) / (B[9] - A[9])
+                m2 = 1 - m1
+                n1 = (y - A[9]) / (C[9] - A[9])
+                n2 = 1 - n1
+                # x, z, u, v, 0, 0, 0, x2d, y2d
+                left = (None,
+                        None,
+                        m2 * A[2] + m1 * B[2], 
+                        m2 * A[3] + m1 * B[3], 
+                        m2 * A[4] + m1 * B[4],  
+                        None, 
+                        None, 
+                        None, 
+                        int(tAB * y + bAB),
+                        y, 
+                        )            
+                right = (None,
+                        None,
+                        n2 * A[2] + n1 * C[2],
+                        n2 * A[3] + n1 * C[3],
+                        n2 * A[4] + n1 * C[4],
+                        None, 
+                        None, 
+                        None, 
+                        int(tAC * y + bAC),
+                        y, 
+                        )
+                # CodeUndone Should be unnecessary to check left and right
+                # because A is left to B and left is AC, right is BC            
+                if left[8] > right[8]:
+                    left, right = right, left
+                
+                line(left, right, y)
+
+            tBC = (B[8] - C[8]) / (B[9] - C[9])
+            bBC = B[8] - B[9] * tBC
+
+            if B[9] <= 0:
+                y_start = 0
+            else:
+                y_start = B[9]
+            if C[9] >= cam.height - 1:
+                y_end = cam.height - 1
+            else:
+                y_end = C[9]
+            for y in range(y_start, y_end):
+                m1 = (y - B[9]) / (C[9] - B[9])
+                m2 = 1 - m1
+                n1 = (y - A[9]) / (C[9] - A[9])
+                n2 = 1 - n1
+                # x, z, u, v, 0, 0, 0, x2d, y2d
+                left = (None,
+                        None, 
+                        n2 * A[2] + n1 * C[2], 
+                        n2 * A[3] + n1 * C[3], 
+                        n2 * A[4] + n1 * C[4], 
+                        None, 
+                        None, 
+                        None, 
+                        int(tAC * y + bAC),
+                        y, 
+                        )            
+                right = (None,
+                        None,
+                        m2 * B[2] + m1 * C[2],
+                        m2 * B[3] + m1 * C[3],
+                        m2 * B[4] + m1 * C[4],
+                        None, 
+                        None, 
+                        None, 
+                        int(tBC * y + bBC),
+                        y, 
+                        )
+                # CodeUndone Should be unnecessary to check left and right
+                # because A is left to B and left is AC, right is BC
+                if left[8] > right[8]:
+                    left, right = right, left
+                
+                line(left, right, y)
 
 
     def depth(A, B, C):
@@ -1925,6 +2417,10 @@ def render(objects:list, lights:list, cam:Camera):
                     z3d = 1 / (p2 * A[2] + p1 * B[2])
                     if z3d < depth_buffer[A[9]][x]:
                         depth_buffer[A[9]][x] = z3d
+                        # if cam.light.type != 2:
+                        #     depth_buffer[A[9]][x] = z3d
+                        # elif (x - cam.light.shadow_properties[4]) * (x - cam.light.shadow_properties[4]) + A[9] * A[9] < cam.light.shadow_properties[5]:
+                        #     depth_buffer[A[9]][x] = z3d
 
             tAC = (A[8] - C[8]) / (A[9] - C[9])
             bAC = A[8] - A[9] * tAC
@@ -1970,8 +2466,11 @@ def render(objects:list, lights:list, cam:Camera):
                     p2 = 1 - p1
                     z3d = 1 / (p2 * left[0] + p1 * right[0])
                     if z3d < depth_buffer[y][x]:
-                        depth_buffer[y][x] = z3d
-                        frame[y][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
+                           depth_buffer[y][x] = z3d
+                        # if cam.light.type != 2:
+                        #     depth_buffer[y][x] = z3d
+                        # elif (x - cam.light.shadow_properties[4]) * (x - cam.light.shadow_properties[4]) + (y - cam.light.shadow_properties[4]) * (y - cam.light.shadow_properties[4]) < cam.light.shadow_properties[5]:
+                        #     depth_buffer[y][x] = z3d
 
         elif B[9] == C[9]:
             if B[8] > C[8]:
@@ -1992,8 +2491,11 @@ def render(objects:list, lights:list, cam:Camera):
                     z3d = 1 / (p2 * B[2] + p1 * C[2])
                     if z3d < depth_buffer[B[9]][x]:
                         depth_buffer[B[9]][x] = z3d
-                        frame[B[9]][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
-
+                        # if cam.light.type != 2:
+                        #     depth_buffer[B[9]][x] = z3d
+                        # elif (x - cam.light.shadow_properties[4]) * (x - cam.light.shadow_properties[4]) + B[9] * B[9] < cam.light.shadow_properties[5]:
+                        #     depth_buffer[B[9]][x] = z3d
+                        
             tAB = (B[8] - A[8]) / (B[9] - A[9])
             bAB = B[8] - B[9] * tAB
             tAC = (A[8] - C[8]) / (A[9] - C[9])
@@ -2039,8 +2541,11 @@ def render(objects:list, lights:list, cam:Camera):
                     p2 = 1 - p1
                     z3d = 1 / (p2 * left[0] + p1 * right[0])
                     if z3d < depth_buffer[y][x]:
-                        depth_buffer[y][x] = z3d
-                        frame[y][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
+                           depth_buffer[y][x] = z3d
+                        # if cam.light.type != 2:
+                        #     depth_buffer[y][x] = z3d
+                        # elif (x - cam.light.shadow_properties[4]) * (x - cam.light.shadow_properties[4]) + (y - cam.light.shadow_properties[4]) * (y - cam.light.shadow_properties[4]) < cam.light.shadow_properties[5]:
+                        #     depth_buffer[y][x] = z3d
         
         else:
             tAC = (A[8] - C[8]) / (A[9] - C[9])
@@ -2088,8 +2593,11 @@ def render(objects:list, lights:list, cam:Camera):
                     p2 = 1 - p1
                     z3d = 1 / (p2 * left[0] + p1 * right[0])
                     if z3d < depth_buffer[y][x]:
-                        depth_buffer[y][x] = z3d
-                        frame[y][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
+                           depth_buffer[y][x] = z3d
+                        # if cam.light.type != 2:
+                        #     depth_buffer[y][x] = z3d
+                        # elif (x - cam.light.shadow_properties[4]) * (x - cam.light.shadow_properties[4]) + (y - cam.light.shadow_properties[4]) * (y - cam.light.shadow_properties[4]) < cam.light.shadow_properties[5]:
+                        #     depth_buffer[y][x] = z3d
 
             tBC = (B[8] - C[8]) / (B[9] - C[9])
             bBC = B[8] - B[9] * tBC
@@ -2134,8 +2642,11 @@ def render(objects:list, lights:list, cam:Camera):
                     p2 = 1 - p1
                     z3d = 1 / (p2 * left[0] + p1 * right[0])
                     if z3d < depth_buffer[y][x]:
-                        depth_buffer[y][x] = z3d
-                        frame[y][x] = (int(255 * (cam.z_far - z3d) // (cam.z_far - cam.z_near)),) * 3
+                           depth_buffer[y][x] = z3d
+                        # if cam.light.type != 2:
+                        #     depth_buffer[y][x] = z3d
+                        # elif (x - cam.light.shadow_properties[4]) * (x - cam.light.shadow_properties[4]) + (y - cam.light.shadow_properties[4]) * (y - cam.light.shadow_properties[4]) < cam.light.shadow_properties[5]:
+                        #     depth_buffer[y][x] = z3d
      
     # Initiate Depth Buffer and/or Object Buffer  
     # Mode 6&7 render lines instead of triangles, so depth test is not necessary
@@ -2152,28 +2663,29 @@ def render(objects:list, lights:list, cam:Camera):
     light:Light    # CodeUndone Vscode
     obj: Object    # CodeUndone Vscode
     # Put light in the same space as what the objects will be put in
-    for light in lights:
-        if light.hidden:
-            continue
-        # CodeUndone
-        # update it only when rotating camera may help the perforamce
-        # Move
-        light.x_in_cam = light.x - cam.x
-        light.y_in_cam = light.y - cam.y
-        light.z_in_cam = light.z - cam.z
-        # Rotation
-        light.x_in_cam, light.y_in_cam, light.z_in_cam = (
-            light.x_in_cam * cam.rotation[0][0] + light.y_in_cam * cam.rotation[0][1] + light.z_in_cam * cam.rotation[0][2],
-            light.x_in_cam * cam.rotation[1][0] + light.y_in_cam * cam.rotation[1][1] + light.z_in_cam * cam.rotation[1][2],
-            light.x_in_cam * cam.rotation[2][0] + light.y_in_cam * cam.rotation[2][1] + light.z_in_cam * cam.rotation[2][2],
-        )
-        if light.type == 0:
-            light.dirx_in_cam, light.diry_in_cam, light.dirz_in_cam = (
-                light.dirx * cam.rotation[0][0] + light.diry * cam.rotation[0][1] + light.dirz * cam.rotation[0][2],
-                light.dirx * cam.rotation[1][0] + light.diry * cam.rotation[1][1] + light.dirz * cam.rotation[1][2],
-                light.dirx * cam.rotation[2][0] + light.diry * cam.rotation[2][1] + light.dirz * cam.rotation[2][2],
-            ) 
-        light.update_rotation(cam)
+    if cam.mode in (0, 1):
+        for light in lights:
+            if light.hidden:
+                continue
+            # CodeUndone
+            # update it only when rotating camera may help the perforamce
+            # Move
+            light.x_in_cam = light.x - cam.x
+            light.y_in_cam = light.y - cam.y
+            light.z_in_cam = light.z - cam.z
+            # Rotation
+            light.x_in_cam, light.y_in_cam, light.z_in_cam = (
+                light.x_in_cam * cam.rotation[0][0] + light.y_in_cam * cam.rotation[0][1] + light.z_in_cam * cam.rotation[0][2],
+                light.x_in_cam * cam.rotation[1][0] + light.y_in_cam * cam.rotation[1][1] + light.z_in_cam * cam.rotation[1][2],
+                light.x_in_cam * cam.rotation[2][0] + light.y_in_cam * cam.rotation[2][1] + light.z_in_cam * cam.rotation[2][2],
+            )
+            if light.type in (0, 2):
+                light.dirx_in_cam, light.diry_in_cam, light.dirz_in_cam = (
+                    light.dirx * cam.rotation[0][0] + light.diry * cam.rotation[0][1] + light.dirz * cam.rotation[0][2],
+                    light.dirx * cam.rotation[1][0] + light.diry * cam.rotation[1][1] + light.dirz * cam.rotation[1][2],
+                    light.dirx * cam.rotation[2][0] + light.diry * cam.rotation[2][1] + light.dirz * cam.rotation[2][2],
+                ) 
+            light.update_rotation(cam)
     for obj in objects:
         if obj.hidden and cam.mode != 5 or cam.mode == 5 and not obj.shadow:
             continue
@@ -2200,7 +2712,7 @@ def render(objects:list, lights:list, cam:Camera):
                  None, None, None, 
                  None, None]
             # Use uv if necessary
-            if cam.mode == 0 and (obj.hastexture or obj.hasnormal_map) or cam.mode == 4 and obj.hastexture:
+            if cam.mode == 0 and (obj.hastexture or obj.hasnormal_map) or cam.mode == 3 and obj.hastexture:
                 A[3], A[4] = obj.vt[face[1][0]]
                 B[3], B[4] = obj.vt[face[1][1]]
                 C[3], C[4] = obj.vt[face[1][2]]
@@ -2213,9 +2725,9 @@ def render(objects:list, lights:list, cam:Camera):
             # Culling
             # Remove those impossible to be seen based on the normal
             # Half the triangles to be rendered
-            if cam.mode!= 7 and (A[:3][0] * obj.vn[face[2]][0] + 
-                                 A[:3][1] * obj.vn[face[2]][1] + 
-                                 A[:3][2] * obj.vn[face[2]][2]) > 0:
+            if cam.mode != 7 and obj.culling and (A[:3][0] * obj.vn[face[2]][0] + 
+                                                 A[:3][1] * obj.vn[face[2]][1] + 
+                                                 A[:3][2] * obj.vn[face[2]][2]) > 0:
                 continue
 
             # Rotate the object
@@ -2246,11 +2758,11 @@ def render(objects:list, lights:list, cam:Camera):
                 C[7] = cam.rotation[2][0] * Csnx + cam.rotation[2][1] * Csny + cam.rotation[2][2] * Csnz
                 normal = None
             else:
-                # CodeUndone Maybe reading index like this is slow? Test later (substitude below for Object.vn[face[2]][0-2])
-                # normal_x, normal_y, normal_z = Object.vn[face[2]][0], Object.vn[face[2]][1], Object.vn[face[2]][2]
-                normal = (cam.rotation[0][0] * Object.vn[face[2]][0] + cam.rotation[0][1] * Object.vn[face[2]][1] + cam.rotation[0][2] * Object.vn[face[2]][2],
-                          cam.rotation[1][0] * Object.vn[face[2]][0] + cam.rotation[1][1] * Object.vn[face[2]][1] + cam.rotation[1][2] * Object.vn[face[2]][2],
-                          cam.rotation[2][0] * Object.vn[face[2]][0] + cam.rotation[2][1] * Object.vn[face[2]][1] + cam.rotation[2][2] * Object.vn[face[2]][2],)
+                # CodeUndone Maybe reading index like this is slow? Test later (substitude below for obj.vn[face[2]][0-2])
+                # normal_x, normal_y, normal_z = obj.vn[face[2]][0], obj.vn[face[2]][1], obj.vn[face[2]][2]
+                normal = (cam.rotation[0][0] * obj.vn[face[2]][0] + cam.rotation[0][1] * obj.vn[face[2]][1] + cam.rotation[0][2] * obj.vn[face[2]][2],
+                          cam.rotation[1][0] * obj.vn[face[2]][0] + cam.rotation[1][1] * obj.vn[face[2]][1] + cam.rotation[1][2] * obj.vn[face[2]][2],
+                          cam.rotation[2][0] * obj.vn[face[2]][0] + cam.rotation[2][1] * obj.vn[face[2]][1] + cam.rotation[2][2] * obj.vn[face[2]][2],)
 
             # Clipping
             # Remove those too far or behind the camera
@@ -2364,18 +2876,24 @@ def render(objects:list, lights:list, cam:Camera):
             if len(inside) == 4:
                 inside[3][8] = cam.width // 2 + int(inside[3][0] * cam.rendering_plane_z / inside[3][2])
                 inside[3][9] = cam.height // 2 - int(inside[3][1] * cam.rendering_plane_z / inside[3][2])
+            
+            # Orthographic projection
+            # inside[0][8] = cam.width // 2 + int(inside[0][0] * 10)
+            # inside[0][9] = cam.height // 2 - int(inside[0][1] * 10)
+            # inside[1][8] = cam.width // 2 + int(inside[1][0] * 10)
+            # inside[1][9] = cam.height // 2 - int(inside[1][1] * 10)
+            # inside[2][8] = cam.width // 2 + int(inside[2][0] * 10)
+            # inside[2][9] = cam.height // 2 - int(inside[2][1] * 10)
+            # if len(inside) == 4:
+            #     inside[3][8] = cam.width // 2 + int(inside[3][0] * 10)
+            #     inside[3][9] = cam.height // 2 - int(inside[3][1] * 10)
 
 
             if cam.mode == 0:
-                if obj.hasnormal_map and obj.hastexture:
-                    
-                    pass
-                elif obj.hastexture:
-                    
-                    pass
-                elif obj.hasnormal_map:
-                    
-                    pass
+                if obj.hastexture:
+                    rasterize_full(inside[0], inside[1][:], inside[2][:], normal)
+                    if len(inside) == 4:
+                        rasterize_full(inside[1], inside[2], inside[3], normal)
                 else:
                     rasterize_solid(inside[0], inside[1][:], inside[2][:], normal)
                     if len(inside) == 4:
@@ -2390,14 +2908,21 @@ def render(objects:list, lights:list, cam:Camera):
             elif cam.mode == 2:
                 pass
             elif cam.mode == 3:
-                pass
+                if obj.hastexture:
+                    texture(inside[0], inside[1][:], inside[2][:])
+                    if len(inside) == 4:
+                        texture(inside[1], inside[2], inside[3])
+                else:
+                    rasterize_solid(inside[0], inside[1][:], inside[2][:], normal)
+                    if len(inside) == 4:
+                        rasterize_solid(inside[1], inside[2], inside[3], normal)
             elif cam.mode == 4:
-                pass
+                depth(inside[0], inside[1][:], inside[2][:])
+                if len(inside) == 4:
+                    depth(inside[1], inside[2], inside[3])
             elif cam.mode == 5:
                 shadow(inside[0], inside[1][:], inside[2][:])
-                # Bp()
                 if len(inside) == 4:
-                    # Bp(2000)
                     shadow(inside[1], inside[2], inside[3])
             elif cam.mode in (6, 7):
                 add_line(inside[0], inside[1])
@@ -2600,9 +3125,9 @@ def orthographic_render_shadow(objects:list, cam:Camera):
             # CodeUndone, Donno whether I should use culling or not in shadow
             # Culling
             # Remove those impossible to be seen based on the normal
-            if cam.mode!= 7 and (A[:3][0] * obj.vn[face[2]][0] + 
-                                 A[:3][1] * obj.vn[face[2]][1] + 
-                                 A[:3][2] * obj.vn[face[2]][2]) > 0:
+            if obj.culling and (A[:3][0] * obj.vn[face[2]][0] + 
+                                                 A[:3][1] * obj.vn[face[2]][1] + 
+                                                 A[:3][2] * obj.vn[face[2]][2]) > 0:
                 continue
 
             # Rotate the object
@@ -2812,11 +3337,11 @@ def add_lights(frame, cam:Camera, lights, direction):
     # CodeUndone
     light:Light
     for light in lights:
-        if not light.hidden:
+        if not light.hidden and light.z_in_cam > cam.z_near:
             x = cam.width // 2 + int(light.x_in_cam * cam.rendering_plane_z / light.z_in_cam)
             y = cam.height // 2 - int(light.y_in_cam * cam.rendering_plane_z / light.z_in_cam)
             
-            if light.type == 0 and direction:
+            if light.type in (0, 2) and direction:
                 x_axis = (
                     light.x_in_cam + 4 * light.rotation0[0][0],
                     light.y_in_cam + 4 * light.rotation0[0][1],
@@ -2876,20 +3401,127 @@ def add_lights(frame, cam:Camera, lights, direction):
     return frame
 
 
+def add_obj_dir(frame, cam:Camera, objects):
+    """
+    For debug use only. Must applied when other rendering process is done
+    """
+    def add_line(M, N, color):
+        if M[0] == N[0]:
+            if 0 <= M[0] < cam.width:
+                if M[1] > N[1]:
+                    M, N = N, M
+                for y in range(max(0, M[1]), min(cam.height - 1, N[1])):
+                    frame[y][M[0]] = color
+        elif abs(k:=(M[1] - N[1]) / (M[0] - N[0])) <= 1:
+            b = M[1] - k * M[0]
+            if M[0] > N[0]:
+                M, N = N, M
+            for x in range(max(0, M[0]), min(cam.width - 1, N[0])):
+                # CodeUndone
+                y = int(k * x + b)
+                if 0 <= y < cam.height:
+                    frame[y][x] = color
+        else:
+            t = 1 / k
+            b = M[0] - t * M[1]
+            if M[1] > N[1]:
+                M, N = N, M
+            for y in range(max(0, M[1]), min(cam.height - 1, N[1])):
+                x = int(t * y + b)
+                if 0 <= x < cam.width:
+                    frame[y][x] = color
+  
+    # CodeUndone
+    obj:Object
+    for obj in objects:
+        if obj.hidden:
+            continue
+        x_in_cam = obj.center[0] - cam.x
+        y_in_cam = obj.center[1] - cam.y
+        z_in_cam = obj.center[2] - cam.z
+        x_in_cam, y_in_cam, z_in_cam = (
+            x_in_cam * cam.rotation[0][0] + y_in_cam * cam.rotation[0][1] + z_in_cam * cam.rotation[0][2],
+            x_in_cam * cam.rotation[1][0] + y_in_cam * cam.rotation[1][1] + z_in_cam * cam.rotation[1][2],
+            x_in_cam * cam.rotation[2][0] + y_in_cam * cam.rotation[2][1] + z_in_cam * cam.rotation[2][2],
+        )
+        rotation = obj.rotation
+        rotation = (
+            (
+                rotation[0][0] * cam.rotation[0][0] + rotation[0][1] * cam.rotation[0][1] + rotation[0][2] * cam.rotation[0][2],
+                rotation[0][0] * cam.rotation[1][0] + rotation[0][1] * cam.rotation[1][1] + rotation[0][2] * cam.rotation[1][2],
+                rotation[0][0] * cam.rotation[2][0] + rotation[0][1] * cam.rotation[2][1] + rotation[0][2] * cam.rotation[2][2],
+            ),
+            (
+                rotation[1][0] * cam.rotation[0][0] + rotation[1][1] * cam.rotation[0][1] + rotation[1][2] * cam.rotation[0][2],
+                rotation[1][0] * cam.rotation[1][0] + rotation[1][1] * cam.rotation[1][1] + rotation[1][2] * cam.rotation[1][2],
+                rotation[1][0] * cam.rotation[2][0] + rotation[1][1] * cam.rotation[2][1] + rotation[1][2] * cam.rotation[2][2],
+            ),
+            (
+                rotation[2][0] * cam.rotation[0][0] + rotation[2][1] * cam.rotation[0][1] + rotation[2][2] * cam.rotation[0][2],
+                rotation[2][0] * cam.rotation[1][0] + rotation[2][1] * cam.rotation[1][1] + rotation[2][2] * cam.rotation[1][2],
+                rotation[2][0] * cam.rotation[2][0] + rotation[2][1] * cam.rotation[2][1] + rotation[2][2] * cam.rotation[2][2],
+            ),
+        )
+        # if v_dot_u(rotation[0], rotation[1]) != 0:
+        #     Beep(1000, 10)
+        # elif v_dot_u(rotation[1], rotation[2]) != 0:
+        #     Beep(1000, 10)
+        # elif v_dot_u(rotation[0], rotation[2]) != 0:
+        #     Beep(1000, 10)
+        
+        length = 1.5
+        if z_in_cam <= cam.z_near - length:
+            continue
+        if not obj.hidden and z_in_cam > cam.z_near:
+            x = cam.width // 2 + int(x_in_cam * cam.rendering_plane_z / z_in_cam)
+            y = cam.height // 2 - int(y_in_cam * cam.rendering_plane_z / z_in_cam)
+            
+            x_axis = (
+                x_in_cam + length * rotation[0][0],
+                y_in_cam + length * rotation[0][1],
+                z_in_cam + length * rotation[0][2],
+            )
+            xx = cam.width // 2 + int(x_axis[0] * cam.rendering_plane_z / x_axis[2])
+            xy = cam.height // 2 - int(x_axis[1] * cam.rendering_plane_z / x_axis[2])
+            add_line((xx, xy), (x, y), (255, 0, 0))
+
+            y_axis = (
+                x_in_cam + length * rotation[1][0],
+                y_in_cam + length * rotation[1][1],
+                z_in_cam + length * rotation[1][2],
+            )
+            yx = cam.width // 2 + int(y_axis[0] * cam.rendering_plane_z / y_axis[2])
+            yy = cam.height // 2 - int(y_axis[1] * cam.rendering_plane_z / y_axis[2])
+            add_line((yx, yy), (x, y), (0, 255, 0))
+
+            z_axis = (
+                x_in_cam + length * rotation[2][0],
+                y_in_cam + length * rotation[2][1],
+                z_in_cam + length * rotation[2][2],
+            )
+            zx = cam.width // 2 + int(z_axis[0] * cam.rendering_plane_z / z_axis[2])
+            zy = cam.height // 2 - int(z_axis[1] * cam.rendering_plane_z / z_axis[2])
+            add_line((zx, zy), (x, y), (0, 0, 255))
+            if 0 <= x < cam.width and 0 <= y < cam.height:
+                frame[y][x] = (127, 255, 255)
+            
+    return frame
+
+
 # CodeUndone
 # time eplased to display the same frame for 5 times
 # resolution    Optimized              Original
-# -11           0.04450345039367676    0.08750605583190918
-# -6            0.16850566864013672    0.40418553352355957
+# -11           0.04410341039367676    0.08710605583190918
+# -6            0.16810566864013672    0.40418553352355957
 # -5            0.2979741096496582     0.6448793411254883
-# -0            50.185423135757446     128.77967882156372
+# -0            10.185423135757446     128.77967882156372
 
             
-def display(frame) -> None:
+def display(frame, num=False) -> None:
     """Store the last color(except 12, 12, 12) to fasten the print process"""
     last_color = None
     frame_in_str = []
-    for row in frame:
+    for y, row in enumerate(frame):
         for pixel in row:
             # if pixel == (0, 0, 0):
             #     frame_in_str.append("  ")
@@ -2901,7 +3533,7 @@ def display(frame) -> None:
                     frame_in_str.append(
                         f"\033[38;2;{pixel[0]};{pixel[1]};{pixel[2]}m██"
                     )
-        frame_in_str.append("\n")
+        frame_in_str.append(f"{y:2d}\n" if num else "\n")
     print("".join(frame_in_str), end="\033[0m\033[F")
 
 # def display_original(frame) -> None:
@@ -2940,8 +3572,8 @@ def clear():
     w, h = Camera.get_width_and_height()
     w += 3
     h += 3
-    frame = [[(0, 0, 0)] * w for _ in range(h)]
-    display(frame)
+    for _ in range(h):
+        print("  " * w)
     system("cls")
 
 

@@ -1,4 +1,4 @@
-from renderer import *
+from Readability.renderer_OLD import *
 import png
 
 if __name__ == "__main__":

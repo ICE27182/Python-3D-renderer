@@ -77,24 +77,30 @@ Use Build-in List
 ### Object
 #### Public
 - objects               [Object, Object, ...]
-- v                     [[x, y, z], [...], ...]
-- vt                    [(u, v), (...), ...]
-- vn                    [[x, y, z], [...], ...]
 - default_loading_dir   "E:\\Programming\\Python\\Python-3D-renderer\\models\\"
 - default_uv_map_size   (INTp, R, G, B)
 ### Private
 - name                  str
+- center                [x, y, z]
 - faces_count           INTp
 - shade_smooth          bool
 - mtl                   Material/None
 - hastexture            bool
 - hasnormal_map         bool
+- culling               bool
+- v                     [[x, y, z], [...], ...]
+- vt                    [(u, v), (...), ...]
+- vn                    [[x, y, z], [...], ...]
 - faces                 [[(A_index:INTw, B_index:INTw, C_index:INTw), 
                           (Auv_index:INTw, Buv_index:INTw, Cuv_index:INTw)/None, 
                           normal_index:INTw/None,
                           (Asn_index:INTw, Bsn_index:INTw, Csn_index:INTw)/None],
                          [...],
                          ...]
+- x_r                   float                         
+- y_r                   float                         
+- z_r                   float                         
+- rotation              ((float, float, float), (..., ..., ...), (...))
 - hidden                bool
 - shadow                bool
 - svn                   [[x, y, z], [...], ...]
@@ -134,7 +140,7 @@ Use Build-in List
 - dirx_in_cam           float
 - diry_in_cam           float
 - dirz_in_cam           float
-- type                  0/1
+- type                  0/1/2
 - hidden                bool
 - shadow                bool
 - shadow_map0           [[z, z, ...], [...], ...]/None
@@ -175,6 +181,7 @@ Use Build-in List
 - rotation              [[Xx, Xy, Xz],
                          [Yx, Yy, Yz],
                          [Zx, Zy, Zz]]
+- light                 Light/None
 
 
 
