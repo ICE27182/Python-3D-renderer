@@ -27,8 +27,8 @@ def len_v(v):
 
 
 class Object:
-    # [Object, Object, ...]
-    objects = []
+    # {name:Object,...:..., ...}
+    objects = {}
     # {name: Material}
     materials = {}
     # Remember to add / at the end
@@ -36,7 +36,6 @@ class Object:
 
     def __init__(self, name:str) -> None:
         self.name = name
-        self.center = [0, 0, 0]
         # [[x, y, z], [...], ...]
         self.v = []
         # [(u, v), (...), ...]
@@ -54,21 +53,13 @@ class Object:
         self.faces = []
         self.svn = []
         self.mtl = None
-        self.face_count = None
         self.shade_smooth = False
         self.shadow = True
         self.hidden = False
+        self.static = True
         self.hastexture = False
         self.hasnormal_map = False
         self.culling = True
-        self.x_r = 0.0
-        self.y_r = 0.0
-        self.z_r = 0.0
-        self.rotation = (
-            (1, 0, 0),
-            (0, 1, 0),
-            (0, 0, 1),
-        )
 
 
     def __str__(self):
@@ -77,7 +68,7 @@ class Object:
                 f"Texture: {self.hastexture} | Normal Map: {self.hasnormal_map} | " +
                 f"Shadow: {self.shadow} | Culling:{self.culling} | " +
                 f"Center: {self.center[0]:.3f} {self.center[1]:.3f} {self.center[2]:.3f} " +
-                f"Rotation {self.x_r:.3f} {self.y_r:.3f} {self.z_r:.3f}")
+                f"Rotation {self.x_r:.3f} {self.y_r:.3f} {self.roll:.3f}")
 
 
     def load_obj(self, file:str, dir:str=None):
@@ -86,6 +77,7 @@ class Object:
         If path is entered, dir should be None
         
         """
+        # Get file path and directory path
         dir = dir.replace("\\", "/") if type(dir) == str else None
         if dir == None:
             dir = Object.default_obj_dir
@@ -94,7 +86,7 @@ class Object:
         if not file.endswith(".obj"):
             file += ".obj"
         file = file.replace("\\", "/")
-        # file is given as path
+        # file is given as path instead of file name
         if "/" in file:
             # dir should be None, but if it is None, it has been changed to
             # Object.default_obj_dir by now
@@ -106,6 +98,7 @@ class Object:
             file = file[-1]
         filepath = dir + file
         print(f"Starts to load obj file: {file} \n(Path: {filepath})")
+
         with open(filepath, "r") as obj_file:
             # Will be added to the f value
             convert_to_left_hand = False
@@ -123,40 +116,58 @@ class Object:
             v_count_plus_1 = 1
             vt_count_plus_1 = 1
             vn_count_plus_1 = 1
+
             for line in obj_file.readlines():
                 line = line.strip()
+                # Comments
                 if line.startswith("#"):
                     continue
+                # Load .mtl file
                 elif line.startswith("mtllib "):
                     print(f"Loading MTL file: {dir + line[7:]}")
                     mtl_loaded = Material.load_mtl(self, line[7:], dir)
                     print(f"Finish loading {dir + line[7:]}")
+                # Object
                 elif line.startswith("o "):
-                    current_obejct = Object(name = line[2:])
-                    self.objects.append(current_obejct)
+                    name = line[2:]
+                    if name in self.objects:
+                        appended_number = 1
+                        while f"{name}_{appended_number}" in self.objects:
+                            appended_number += 1
+                        print(f"Due to a name collision, object "
+                            + f"name \"{name}\" has been changed to \"{name}_{appended_number}\"")
+                        name = f"{name}_{appended_number}"
+                    current_obejct = Object(name = name)
+                    self.objects[name] = current_obejct
                     print(f"Loading {current_obejct.name}")
                     v_offset = v_count_plus_1
                     vt_offset = vt_count_plus_1
                     vn_offset = vn_count_plus_1
+                # vertex
                 elif line.startswith("v "):
                     current_obejct.v.append(list(map(float, line[2:].split())))
                     v_count_plus_1 += 1
                     if convert_to_left_hand:
                         current_obejct.v[-1][0] *= -1
+                # vertex texture coordinate
                 elif line.startswith("vt "):
                     current_obejct.vt.append(tuple(map(float, line[3:].split())))
                     vt_count_plus_1 += 1
                     if convert_to_left_hand:
                         current_obejct.vt[-1] = (current_obejct.vt[-1][0], 1 - current_obejct.vt[-1][1])
+                # vertex normal
                 elif line.startswith("vn "):
                     current_obejct.vn.append(list(map(float, line[3:].split())))
                     vn_count_plus_1 += 1
                     if convert_to_left_hand:
                         current_obejct.vn[-1][0] *= -1
+                # smooth shading
                 elif line in ("s 1", "s on"):
                     current_obejct.shade_smooth = True
+                # object material
                 elif line.startswith("usemtl ") and mtl_loaded:
                     current_obejct.mtl = self.materials[line[7:]]
+                # face
                 elif line.startswith("f "):
                     face = line[2:].split()
                     # v&vn
@@ -217,21 +228,25 @@ class Object:
         # does not have uv coordinates, which should be created by
         # means like unwrapping in blender in advance.
         obj:Object    # CodeUndone VsCode 
-        for obj in Object.objects:
+        for name, obj in Object.objects.items():
             obj.face_count = len(obj.faces)
             obj.calculate_face_normals()
             if obj.shade_smooth:
+                # All vertex normals are actually vertex normals, instead of face normal
+                # However, it would not work if you simply use that and not calculate it
+                # again. While the normals are correct, the vertex normal indice are 
+                # incorrect (see to the face loading part of code, where it only stores
+                # one normal for each face).
+                obj.calculate_face_normals()
                 obj.calculate_smooth_shading_normals()
-            # If the object does not have uv coordinates, none of
-            # shadow, texture or normal map will apply
-            if obj.faces[0][1] == None:
-                continue
+
             if obj.mtl != None:
                 if obj.mtl.texture_path != None:
                     obj.hastexture = True
-                    
                 if obj.mtl.normal_map != None:
                     obj.hasnormal_map = True
+            
+
         print(f"{file} has finished loading\n")
     
 
@@ -395,6 +410,7 @@ class Object:
             self.v[index][2] += self.center[2]
 
 
+
 class Material:
     def __init__(self, name:str) -> None:
         self.name = name
@@ -513,16 +529,202 @@ class Material:
             self.texture.width -= 1
             self.texture.height -= 1
     
+
     def load_img(self):
         if self.texture_path:
             self.texture = png.Png(self.texture_path, "")
         if self.normal_map_path:
             self.normal_map = png.Png(self.normal_map_path, "")
+
+
+
+class Transformation(Object):
+    # {trans_name:Transformation, ...:..., ...}
+    transformations = {}
+    def __init__(self, obj:Object, trans_name=None) -> None:
+        self.trans_name = trans_name if trans_name != None else obj.name
+        self.obj = obj
+        self.culling = obj.culling
+        self.hidden = obj.hidden
+        self.shadow = obj.hidden
+        self.hastexture = obj.hastexture
+        self.hasnormal_map = obj.hasnormal_map
+        self.mtl = obj.mtl
+        self.shade_smooth = obj.shade_smooth
+        self.v = obj.v
+        self.vt = obj.vt
+        self.vn = obj.vn[:]
+        self.svn = obj.svn[:]
+        self.faces = obj.faces
+        self.x = 0
+        self.y = 0
+        self.z = 0
+        self.static = True
+        self.pitch = 0.0
+        self.yaw = 0.0
+        self.roll = 0.0
+        self.rotation = (
+            (1, 0, 0),
+            (0, 1, 0),
+            (0, 0, 1),
+        )
+    
+
+    def __str__(self):
+        return (
+            f"{self.trans_name} | {len(self.faces)} faces | " +
+            f"Shading {'smooth' if self.shade_smooth else 'flat'} | " +
+            f"Texture: {self.hastexture} | Normal Map: {self.hasnormal_map} | " +
+            f"Shadow: {self.shadow} | Culling:{self.culling} | " +
+            f"Center: {self.x:.3f} {self.y:.3f} {self.z:.3f} " +
+            f"Rotation pitch: {self.pitch * 180 / pi:.3f}degrees roll: {self.roll * 180 / pi:.3f}degrees yaw: {self.yaw * 180 / pi:.3f}degrees"
+        )
+
+
+    def add_to_transformations(transformations, objects:Object.objects):
+        for obj in objects:
+            trans = Transformation(obj)
+            transformations[trans.trans_name] = trans
+
+
+    def move_to(self, x, y, z):
+        self.x = x
+        self.y = y
+        self.z = z
+    
+
+    def move_by(self, x=0, y=0, z=0):
+        self.x += x
+        self.y += y
+        self.z += z
+    
+
+    def rotate_to(self, pitch, yaw, roll, in_degrees=True):
+        if in_degrees:
+            pitch *= pi / 180
+            yaw *= pi / 180
+            roll *= pi / 180
+        self.pitch = pitch
+        self.yaw = yaw
+        self.roll = roll
+        self.update_rotation()
         
+    
+    def rotate_by(self, pitch=0.0, yaw=0.0, roll=0.0, in_degrees=True):
+        if in_degrees:
+            pitch *= pi / 180
+            yaw *= pi / 180
+            roll *= pi / 180
+        self.pitch += pitch
+        self.yaw += yaw
+        self.roll += roll
+        self.update_rotation()
+        
+    
+    def update_rotation(self):
+        self.rotation = (
+            (1, 0, 0),
+            (0, 1, 0),
+            (0, 0, 1),
+        )
+        if self.roll != 0.0:
+            cos_roll = cos(self.roll)
+            sin_roll = sin(self.roll)
+            rotation = (
+                (cos_roll, -sin_roll, 0,),
+                (sin_roll, cos_roll, 0,),
+                (0, 0, 1),
+            )
+            self.rotation = (
+                (self.rotation[0][0] * rotation[0][0] + self.rotation[0][1] * rotation[0][1], self.rotation[0][0] * rotation[1][0] + self.rotation[0][1] * rotation[1][1], self.rotation[0][2],),
+                (self.rotation[1][0] * rotation[0][0] + self.rotation[1][1] * rotation[0][1], self.rotation[1][0] * rotation[1][0] + self.rotation[1][1] * rotation[1][1], self.rotation[1][2],),
+                (self.rotation[2][0] * rotation[0][0] + self.rotation[2][1] * rotation[0][1], self.rotation[2][0] * rotation[1][0] + self.rotation[2][1] * rotation[1][1], self.rotation[2][2],),
+            )
+        if self.pitch != 0.0:
+            cos_pitch = cos(self.pitch)
+            sin_pitch = sin(self.pitch)
+            rotation = (
+                (1, 0, 0,),
+                (0, cos_pitch, -sin_pitch,),
+                (0, sin_pitch, cos_pitch,),
+            )
+            self.rotation = (
+                (self.rotation[0][0], self.rotation[0][1] * rotation[1][1] + self.rotation[0][2] * rotation[1][2], self.rotation[0][1] * rotation[2][1] + self.rotation[0][2] * rotation[2][2],),
+                (self.rotation[1][0], self.rotation[1][1] * rotation[1][1] + self.rotation[1][2] * rotation[1][2], self.rotation[1][1] * rotation[2][1] + self.rotation[1][2] * rotation[2][2],),
+                (self.rotation[2][0], self.rotation[2][1] * rotation[1][1] + self.rotation[2][2] * rotation[1][2], self.rotation[2][1] * rotation[2][1] + self.rotation[2][2] * rotation[2][2],),
+            )
+        if self.yaw != 0.0:
+            cos_yaw = cos(self.yaw)
+            sin_yaw = sin(self.yaw)
+            rotation = (
+                (cos_yaw, 0, sin_yaw,),
+                (0, 1, 0,),
+                (-sin_yaw, 0, cos_yaw,),
+            )
+            self.rotation = (
+                (self.rotation[0][0] * rotation[0][0] + self.rotation[0][2] * rotation[0][2], self.rotation[0][1], self.rotation[0][0] * rotation[2][0] + self.rotation[0][2] * rotation[2][2],),
+                (self.rotation[1][0] * rotation[0][0] + self.rotation[1][2] * rotation[0][2], self.rotation[1][1], self.rotation[1][0] * rotation[2][0] + self.rotation[1][2] * rotation[2][2],),
+                (self.rotation[2][0] * rotation[0][0] + self.rotation[2][2] * rotation[0][2], self.rotation[2][1], self.rotation[2][0] * rotation[2][0] + self.rotation[2][2] * rotation[2][2],),
+            )
+
+
+    def apply_trans(self) -> list:
+        """
+        Return a list of vertices, in the form of Object.v but with rotated and moved coordinates
+        """
+        vertices = self.v[:]
+        for vertex in vertices:
+            if self.static:
+                continue
+            if not (self.pitch == 0.0 and self.yaw == 0.0 and self.roll == 0.0):
+                vertex[0], vertex[1], vertex[2] = (
+                vertex[0] * self.rotation[0][0] + vertex[1] * self.rotation[0][1] + vertex[2] * self.rotation[0][2],
+                vertex[0] * self.rotation[1][0] + vertex[1] * self.rotation[1][1] + vertex[2] * self.rotation[1][2],
+                vertex[0] * self.rotation[2][0] + vertex[1] * self.rotation[2][1] + vertex[2] * self.rotation[2][2],
+            )
+            vertex[0] += self.x
+            vertex[1] += self.y
+            vertex[2] += self.z
+        return vertices
+    
+
+    def apply_rotation(self) -> list:
+        """
+        Return a list of vertices, in the form of Object.v but with rotated coordinates
+        """
+        if self.static:
+            return self.v[:]
+        vertices = self.v[:]
+        for vertex in vertices:
+            if not (self.pitch == 0.0 and self.yaw == 0.0 and self.roll == 0.0):
+                vertex[0], vertex[1], vertex[2] = (
+                vertex[0] * self.rotation[0][0] + vertex[1] * self.rotation[0][1] + vertex[2] * self.rotation[0][2],
+                vertex[0] * self.rotation[1][0] + vertex[1] * self.rotation[1][1] + vertex[2] * self.rotation[1][2],
+                vertex[0] * self.rotation[2][0] + vertex[1] * self.rotation[2][1] + vertex[2] * self.rotation[2][2],
+            )
+        for normal in self.vn:
+            if not (self.pitch == 0.0 and self.yaw == 0.0 and self.roll == 0.0):
+                normal[0], normal[1], normal[2] = (
+                normal[0] * self.rotation[0][0] + normal[1] * self.rotation[0][1] + normal[2] * self.rotation[0][2],
+                normal[0] * self.rotation[1][0] + normal[1] * self.rotation[1][1] + normal[2] * self.rotation[1][2],
+                normal[0] * self.rotation[2][0] + normal[1] * self.rotation[2][1] + normal[2] * self.rotation[2][2],
+            )
+        if self.shade_smooth:
+            for snormal in self.svn:
+                if not (self.pitch == 0.0 and self.yaw == 0.0 and self.roll == 0.0):
+                    snormal[0], snormal[1], snormal[2] = (
+                    snormal[0] * self.rotation[0][0] + snormal[1] * self.rotation[0][1] + snormal[2] * self.rotation[0][2],
+                    snormal[0] * self.rotation[1][0] + snormal[1] * self.rotation[1][1] + snormal[2] * self.rotation[1][2],
+                    snormal[0] * self.rotation[2][0] + snormal[1] * self.rotation[2][1] + snormal[2] * self.rotation[2][2],
+                )
+        return vertices
+
+
 
 
 class Light:
-    lights = []
+    # name:Light
+    lights = {}
     # [(
     #     (
     #         (z, z, ...), 
@@ -540,8 +742,8 @@ class Light:
     # 4 half resolition
     # 5 squared half resolution
     shadow_properties = (512, 0.01, 320, 256, 256, 256, 65536)
-    def __init__(self, position, strength=(1, 1, 1), direction=None, size=60, type=1) -> None:
-        
+    def __init__(self, position, strength=(1, 1, 1), direction=None, size=60, type=1, name=None) -> None:
+        self.name = name
         if type in (0, 2) and direction == None:
             raise Exception("Parallel light source (type 0) requires direction")
         if type == 1:
@@ -756,7 +958,7 @@ class Light:
             ) 
 
         
-        
+
 class Camera:
     modes_look_up = (
         "Full", # 0
@@ -863,44 +1065,8 @@ class Camera:
 
 
 
-class Scene(Object, Light, Camera):
-    def __init__(self) -> None:
-        self.objects = []
-        self.v = []
-        self.vt = []
-        self.vn = []
-        self.materials = {}
-        self.default_obj_dir = Object.default_obj_dir
-        self.default_uv_map_properties = Object.default_uv_map_properties
-        self.lights = []
-        self.cam = Camera()
-    
 
-    def render(self):
-        pass
-
-
-    def display(frame) -> None:
-        frame_in_str = []
-        for row in frame:
-            for pixel in row:
-                if pixel == (0, 0, 0):
-                    frame_in_str.append("  ")
-                else:
-                    frame_in_str.append(
-                        f"\033[38;2{pixel[0]};{pixel[1]};{pixel[2]}m██"
-                    )
-            frame_in_str.append("\n")
-        print("".join(frame_in_str), end="\033[0m")
-
-
-    def mainloop(self):
-        while True:
-            pass
-
-
-
-def render(objects:list, lights:list, cam:Camera):
+def render(transformations:dict, lights:dict, cam:Camera):
     def get_luminance(normal, x3d, y3d, z3d) -> list:
         def in_point_light_shadow():
             x_light1, y_light1, z_light1 = (
@@ -989,11 +1155,11 @@ def render(objects:list, lights:list, cam:Camera):
         luminance = [0.05, 0.05, 0.05]
         # CodeUndone VsCode
         light:Light
-        for light in Light.lights:
+        for light in Light.lights.values():
             if light.hidden:
                 continue
 
-            if light.shadow and obj.shadow:
+            if light.shadow and trans.shadow:
                 if light.type == 0 and light.shadow_map0 != None:
                     x_light = x3d - light.x_in_cam
                     y_light = y3d - light.y_in_cam
@@ -1143,12 +1309,12 @@ def render(objects:list, lights:list, cam:Camera):
                 z3d = 1 / (p2 * left[2] + p1 * right[2])
                 if z3d < depth_buffer[y][x]:
                     if cam.obj_buffer:
-                        obj_buffer[y][x] = obj
+                        obj_buffer[y][x] = trans
                     depth_buffer[y][x] = z3d
                     # calculate the light
                     x3d = (p2 * left[0] + p1 * right[0]) * z3d
                     y3d = (p2 * left[1] + p1 * right[1]) * z3d
-                    if obj.shade_smooth:
+                    if trans.shade_smooth:
                         normal = (
                             p2 * left[5] + p1 * right[5],
                             p2 * left[6] + p1 * right[6],
@@ -1211,7 +1377,7 @@ def render(objects:list, lights:list, cam:Camera):
             for y in range(y_start, y_end):
                 m1 = (y - A[9]) / (C[9] - A[9])
                 m2 = 1 - m1
-                if obj.shade_smooth:
+                if trans.shade_smooth:
                     # x, y, z, u, v, sx, sy, sz
                     left = (m2 * A[0] + m1 * C[0], 
                             m2 * A[1] + m1 * C[1], 
@@ -1287,7 +1453,7 @@ def render(objects:list, lights:list, cam:Camera):
             for y in range(y_start, y_end):
                 m1 = (y - A[9]) / (B[9] - A[9])
                 m2 = 1 - m1
-                if obj.shade_smooth:
+                if trans.shade_smooth:
                     # x, y, z, u, v, sx, sy, sz
                     left = (m2 * A[0] + m1 * B[0], 
                             m2 * A[1] + m1 * B[1], 
@@ -1360,7 +1526,7 @@ def render(objects:list, lights:list, cam:Camera):
                 m2 = 1 - m1
                 n1 = (y - A[9]) / (C[9] - A[9])
                 n2 = 1 - n1
-                if obj.shade_smooth:
+                if trans.shade_smooth:
                     # x, y, z, u, v, sx, sy, sz
                     left = (m2 * A[0] + m1 * B[0], 
                             m2 * A[1] + m1 * B[1], 
@@ -1430,7 +1596,7 @@ def render(objects:list, lights:list, cam:Camera):
                 m2 = 1 - m1
                 n1 = (y - A[9]) / (C[9] - A[9])
                 n2 = 1 - n1
-                if obj.shade_smooth:
+                if trans.shade_smooth:
                     # x, y, z, u, v, sx, sy, sz
                     left = (n2 * A[0] + n1 * C[0], 
                             n2 * A[1] + n1 * C[1], 
@@ -1503,7 +1669,7 @@ def render(objects:list, lights:list, cam:Camera):
                 z3d = 1 / (p2 * left[2] + p1 * right[2])
                 if z3d < depth_buffer[y][x]:
                     if cam.obj_buffer:
-                        obj_buffer[y][x] = obj
+                        obj_buffer[y][x] = trans
                     depth_buffer[y][x] = z3d
                     # calculate the light
                     x3d = (p2 * left[0] + p1 * right[0]) * z3d
@@ -1511,13 +1677,13 @@ def render(objects:list, lights:list, cam:Camera):
                     u = (p2 * left[3] + p1 * right[3]) * z3d
                     v = (p2 * left[4] + p1 * right[4]) * z3d
 
-                    color = obj.mtl.texture.pixels[int(v * obj.mtl.texture.height)][int(u * obj.mtl.texture.width)]
-                    if obj.hasnormal_map:
-                        normal = obj.mtl.normal_map.pixels[int(v * obj.mtl.normal_map.height)][int(u * obj.mtl.normal_map.width)]
+                    color = trans.mtl.texture.pixels[int(v * trans.mtl.texture.height)][int(u * trans.mtl.texture.width)]
+                    if trans.hasnormal_map:
+                        normal = trans.mtl.normal_map.pixels[int(v * trans.mtl.normal_map.height)][int(u * trans.mtl.normal_map.width)]
                         normal = (2 * normal[0] / 255 - 1,
                                   2 * normal[1] / 255 - 1,
                                   2 * normal[2] / 255 - 1)
-                    elif obj.shade_smooth:
+                    elif trans.shade_smooth:
                         normal = (
                             p2 * left[5] + p1 * right[5],
                             p2 * left[6] + p1 * right[6],
@@ -1590,7 +1756,7 @@ def render(objects:list, lights:list, cam:Camera):
             for y in range(y_start, y_end):
                 m1 = (y - A[9]) / (C[9] - A[9])
                 m2 = 1 - m1
-                if obj.shade_smooth:
+                if trans.shade_smooth:
                     # x, y, z, u, v, sx, sy, sz
                     left = (m2 * A[0] + m1 * C[0], 
                             m2 * A[1] + m1 * C[1], 
@@ -1668,7 +1834,7 @@ def render(objects:list, lights:list, cam:Camera):
             for y in range(y_start, y_end):
                 m1 = (y - A[9]) / (B[9] - A[9])
                 m2 = 1 - m1
-                if obj.shade_smooth:
+                if trans.shade_smooth:
                     # x, y, z, u, v, sx, sy, sz
                     left = (m2 * A[0] + m1 * B[0], 
                             m2 * A[1] + m1 * B[1], 
@@ -1742,7 +1908,7 @@ def render(objects:list, lights:list, cam:Camera):
                 m2 = 1 - m1
                 n1 = (y - A[9]) / (C[9] - A[9])
                 n2 = 1 - n1
-                if obj.shade_smooth:
+                if trans.shade_smooth:
                     # x, y, z, u, v, sx, sy, sz
                     left = (m2 * A[0] + m1 * B[0], 
                             m2 * A[1] + m1 * B[1], 
@@ -1813,7 +1979,7 @@ def render(objects:list, lights:list, cam:Camera):
                 m2 = 1 - m1
                 n1 = (y - A[9]) / (C[9] - A[9])
                 n2 = 1 - n1
-                if obj.shade_smooth:
+                if trans.shade_smooth:
                     # x, y, z, u, v, sx, sy, sz
                     left = (n2 * A[0] + n1 * C[0], 
                             n2 * A[1] + n1 * C[1], 
@@ -1887,12 +2053,12 @@ def render(objects:list, lights:list, cam:Camera):
                 z3d = 1 / (p2 * left[2] + p1 * right[2])
                 if z3d < depth_buffer[y][x]:
                     if cam.obj_buffer:
-                        obj_buffer[y][x] = obj
+                        obj_buffer[y][x] = trans
                     depth_buffer[y][x] = z3d
                     # calculate the light
                     u = (p2 * left[3] + p1 * right[3]) * z3d
                     v = (p2 * left[4] + p1 * right[4]) * z3d
-                    frame[y][x] = obj.mtl.texture.pixels[int(v * obj.mtl.texture.height)][int(u * obj.mtl.texture.width)]
+                    frame[y][x] = trans.mtl.texture.pixels[int(v * trans.mtl.texture.height)][int(u * trans.mtl.texture.width)]
         
         # Sorting by y, from lowest to highest in value but from top to bottom in what u see
         if A[9] > B[9]:
@@ -2661,10 +2827,10 @@ def render(objects:list, lights:list, cam:Camera):
 
     frame = [[(0, 0, 0)] * cam.width for _ in range(cam.height)]
     light:Light    # CodeUndone Vscode
-    obj: Object    # CodeUndone Vscode
+    trans: Transformation    # CodeUndone Vscode
     # Put light in the same space as what the objects will be put in
     if cam.mode in (0, 1):
-        for light in lights:
+        for light in lights.values():
             if light.hidden:
                 continue
             # CodeUndone
@@ -2686,48 +2852,54 @@ def render(objects:list, lights:list, cam:Camera):
                     light.dirx * cam.rotation[2][0] + light.diry * cam.rotation[2][1] + light.dirz * cam.rotation[2][2],
                 ) 
             light.update_rotation(cam)
-    for obj in objects:
-        if obj.hidden and cam.mode != 5 or cam.mode == 5 and not obj.shadow:
+    for trans in transformations.values():
+        if trans.hidden and cam.mode != 5 or cam.mode == 5 and not trans.shadow:
             continue
-        for face in obj.faces:
+        
+        v = trans.apply_rotation()
+        center_minus_cam_x = trans.x - cam.x
+        center_minus_cam_y = trans.y - cam.y
+        center_minus_cam_z = trans.z - cam.z
+
+        for face in trans.faces:
             # Move the object
             # [x, y, z, u, v, snx, sny, snz, x2d, y2d]
             #  0  1  2  3  4   5    6    7    8    9    
-            A = [obj.v[face[0][0]][0] - cam.x,
-                 obj.v[face[0][0]][1] - cam.y,
-                 obj.v[face[0][0]][2] - cam.z,
+            A = [v[face[0][0]][0] + center_minus_cam_x,
+                 v[face[0][0]][1] + center_minus_cam_y,
+                 v[face[0][0]][2] + center_minus_cam_z,
                  None, None, 
                  None, None, None, 
                  None, None]
-            B = [obj.v[face[0][1]][0] - cam.x,
-                 obj.v[face[0][1]][1] - cam.y,
-                 obj.v[face[0][1]][2] - cam.z,
+            B = [v[face[0][1]][0] + center_minus_cam_x,
+                 v[face[0][1]][1] + center_minus_cam_y,
+                 v[face[0][1]][2] + center_minus_cam_z,
                  None, None, 
                  None, None, None, 
                  None, None]
-            C = [obj.v[face[0][2]][0] - cam.x,
-                 obj.v[face[0][2]][1] - cam.y,
-                 obj.v[face[0][2]][2] - cam.z,
+            C = [v[face[0][2]][0] + center_minus_cam_x,
+                 v[face[0][2]][1] + center_minus_cam_y,
+                 v[face[0][2]][2] + center_minus_cam_z,
                  None, None, 
                  None, None, None, 
                  None, None]
             # Use uv if necessary
-            if cam.mode == 0 and (obj.hastexture or obj.hasnormal_map) or cam.mode == 3 and obj.hastexture:
-                A[3], A[4] = obj.vt[face[1][0]]
-                B[3], B[4] = obj.vt[face[1][1]]
-                C[3], C[4] = obj.vt[face[1][2]]
+            if cam.mode == 0 and (trans.hastexture or trans.hasnormal_map) or cam.mode == 3 and trans.hastexture:
+                A[3], A[4] = trans.vt[face[1][0]]
+                B[3], B[4] = trans.vt[face[1][1]]
+                C[3], C[4] = trans.vt[face[1][2]]
             # Use smooth shading vectors if necessary
-            if obj.shade_smooth and cam.mode <= 1:
-                A[5], A[6], A[7] = obj.svn[face[3][0]]
-                B[5], B[6], B[7] = obj.svn[face[3][1]]
-                C[5], C[6], C[7] = obj.svn[face[3][2]]
+            if trans.shade_smooth and cam.mode <= 1:
+                A[5], A[6], A[7] = trans.svn[face[3][0]]
+                B[5], B[6], B[7] = trans.svn[face[3][1]]
+                C[5], C[6], C[7] = trans.svn[face[3][2]]
             
             # Culling
             # Remove those impossible to be seen based on the normal
             # Half the triangles to be rendered
-            if cam.mode != 7 and obj.culling and (A[:3][0] * obj.vn[face[2]][0] + 
-                                                 A[:3][1] * obj.vn[face[2]][1] + 
-                                                 A[:3][2] * obj.vn[face[2]][2]) > 0:
+            if cam.mode != 7 and trans.culling and (A[:3][0] * trans.vn[face[2]][0] + 
+                                                 A[:3][1] * trans.vn[face[2]][1] + 
+                                                 A[:3][2] * trans.vn[face[2]][2]) > 0:
                 continue
 
             # Rotate the object
@@ -2758,11 +2930,11 @@ def render(objects:list, lights:list, cam:Camera):
                 C[7] = cam.rotation[2][0] * Csnx + cam.rotation[2][1] * Csny + cam.rotation[2][2] * Csnz
                 normal = None
             else:
-                # CodeUndone Maybe reading index like this is slow? Test later (substitude below for obj.vn[face[2]][0-2])
-                # normal_x, normal_y, normal_z = obj.vn[face[2]][0], obj.vn[face[2]][1], obj.vn[face[2]][2]
-                normal = (cam.rotation[0][0] * obj.vn[face[2]][0] + cam.rotation[0][1] * obj.vn[face[2]][1] + cam.rotation[0][2] * obj.vn[face[2]][2],
-                          cam.rotation[1][0] * obj.vn[face[2]][0] + cam.rotation[1][1] * obj.vn[face[2]][1] + cam.rotation[1][2] * obj.vn[face[2]][2],
-                          cam.rotation[2][0] * obj.vn[face[2]][0] + cam.rotation[2][1] * obj.vn[face[2]][1] + cam.rotation[2][2] * obj.vn[face[2]][2],)
+                # CodeUndone Maybe reading index like this is slow? Test later (substitude below for trans.vn[face[2]][0-2])
+                # normal_x, normal_y, normal_z = trans.vn[face[2]][0], trans.vn[face[2]][1], trans.vn[face[2]][2]
+                normal = (cam.rotation[0][0] * trans.vn[face[2]][0] + cam.rotation[0][1] * trans.vn[face[2]][1] + cam.rotation[0][2] * trans.vn[face[2]][2],
+                          cam.rotation[1][0] * trans.vn[face[2]][0] + cam.rotation[1][1] * trans.vn[face[2]][1] + cam.rotation[1][2] * trans.vn[face[2]][2],
+                          cam.rotation[2][0] * trans.vn[face[2]][0] + cam.rotation[2][1] * trans.vn[face[2]][1] + cam.rotation[2][2] * trans.vn[face[2]][2],)
 
             # Clipping
             # Remove those too far or behind the camera
@@ -2890,7 +3062,7 @@ def render(objects:list, lights:list, cam:Camera):
 
 
             if cam.mode == 0:
-                if obj.hastexture:
+                if trans.hastexture:
                     rasterize_full(inside[0], inside[1][:], inside[2][:], normal)
                     if len(inside) == 4:
                         rasterize_full(inside[1], inside[2], inside[3], normal)
@@ -2908,7 +3080,7 @@ def render(objects:list, lights:list, cam:Camera):
             elif cam.mode == 2:
                 pass
             elif cam.mode == 3:
-                if obj.hastexture:
+                if trans.hastexture:
                     texture(inside[0], inside[1][:], inside[2][:])
                     if len(inside) == 4:
                         texture(inside[1], inside[2], inside[3])

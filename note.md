@@ -81,8 +81,6 @@ Use Build-in List
 - default_uv_map_size   (INTp, R, G, B)
 ### Private
 - name                  str
-- center                [x, y, z]
-- faces_count           INTp
 - shade_smooth          bool
 - mtl                   Material/None
 - hastexture            bool
@@ -97,11 +95,9 @@ Use Build-in List
                           (Asn_index:INTw, Bsn_index:INTw, Csn_index:INTw)/None],
                          [...],
                          ...]
-- x_r                   float                         
-- y_r                   float                         
-- z_r                   float                         
 - rotation              ((float, float, float), (..., ..., ...), (...))
 - hidden                bool
+- static                bool
 - shadow                bool
 - svn                   [[x, y, z], [...], ...]
 
@@ -117,14 +113,28 @@ Use Build-in List
 - texture_path          None/str
 - normal_map_path       None/str
 
+### Transformation (Object)
+#### public
+- transformations       {trans_name:Transformation, ...:..., ...}
+#### Private
+- center                [x, y, z]
+- x_r                   float                         
+- y_r                   float                         
+- z_r                   float    
+- mtl                   Material/None                     
+
+
+
+
 ### Light
 #### Public
-- light_sources         [Light, Light, ...]
+- light_sources         {name:Light}
 #### Private
 <!-- - strength              (NUM, NUM, NUM)
 - position              (x, y, z)  
 - direction             None/(x, y, z)
 - cam_space_position    (x, y, z) -->
+- name                  str/None
 - x                     float
 - y                     float
 - z                     float
@@ -212,3 +222,7 @@ if bake:
 
 
 ```
+
+
+# ICE
+Load obj(file) - load mtl - initiate transform

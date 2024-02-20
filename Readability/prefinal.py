@@ -8,33 +8,56 @@ from math import sin, cos, pi, sqrt
 import control
 from time import time
 
-# pyrender.Light.shadow_properties = (2048, 0.01, 1000, 1024)
-# PARTICLES = particles.Particles(density=2,
-#                                 position=(19.6, 0, 12.5),
-#                                 size=6)
 pyrender.Object.default_obj_dir = "models/"
 
 
 
 pyrender.Object.load_obj(pyrender.Object, "models/Final/Porsche 911")
+pyrender.Object.objects["Porsche_911"].calculate_smooth_shading_normals()
+pyrender.Object.objects["Porsche_911"].shade_smooth = True
+
+pyrender.Object.objects["Steering_Wheel"].culling = False
+
+
 pyrender.Object.load_obj(pyrender.Object, "models/Final/Scene")
-for obj in pyrender.Object.objects:
-    if obj.name == "Road_light":
-        obj.culling = False
-        obj.shadow = False
-    elif "shadow_wall" in obj.name:
-        obj.hidden = True
-    elif obj.name == "Shop":
-        obj.culling = False
-    elif obj.name == "Shop_top":
-        obj.culling = False
-    elif obj.name == "Sun":
-        obj.culling = False
-    elif obj.name == "Road_light_pole":
-        obj.shade_smooth = True
-        obj.calculate_smooth_shading_normals()
+
+
+pyrender.Object.objects["Road_light"].culling = False
+pyrender.Object.objects["Road_light"].shadow = False
+
+pyrender.Object.objects["Appartment_shadow_wall"].hidden = True
+
+pyrender.Object.objects["Shop"].culling = False
+
+pyrender.Object.objects["Shop_top"].culling = False
+
+pyrender.Object.objects["Sun"].culling = False
+
+pyrender.Object.objects["Road_light_pole"].shade_smooth = True
+pyrender.Object.objects["Road_light_pole"].calculate_smooth_shading_normals()
         
     
+for obj in pyrender.Object.objects.values():
+    trans = pyrender.Transformation(obj)
+    pyrender.Transformation.transformations[trans.trans_name] = trans
+
+vehicles = []
+
+car: pyrender.Transformation
+car = pyrender.Transformation.transformations["Porsche_911"]
+vehicles.append(car)
+car.seat = (-0.45, 1.1, 2.0)
+car.steering_wheel = (-0.45, 0.8, 2.78)
+car.aboard_range = ((-2.5, 2.5), (-5, 5),(-5, 5))
+car.velocity = 0.0
+car.acceleration = 0.0
+car.static = False
+car.move_to(24, 0, 12)
+
+steering_wheel: pyrender.Transformation
+steering_wheel= pyrender.Transformation.transformations["Steering_Wheel"]
+steering_wheel.roll_max = 0
+car.static = False
 
 # Porsche 911
 cam = pyrender.Camera(x=22.287827951426433, y=1.75, z=12.827173315035669, yaw=50.0, pitch=-10.0, roll=0.0, width=119, height=60, z_near=0.05, z_far=100.0, fov=90, fxaa=False, obj_buffer=True, mode=0)
@@ -42,7 +65,7 @@ cam = pyrender.Camera(x=22.287827951426433, y=1.75, z=12.827173315035669, yaw=50
 cam = pyrender.Camera(x=0, y=1.75, z=-2, yaw=90.0, pitch=0.0, roll=0.0, width=119, height=60, z_near=0.05, z_far=256.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
 
 # Sunset
-pyrender.Light.lights.append(
+pyrender.Light.lights["Sun"] = (
     pyrender.Light(
         (20.0, 53.0, -48.0),
         (255 / 512, 121 / 512, 7 / 512,),
@@ -52,7 +75,7 @@ pyrender.Light.lights.append(
 )
 
 # Road Light
-pyrender.Light.lights.append(
+pyrender.Light.lights["Road Light"] = (
     pyrender.Light(
         (23.1, 6.25, 16.0),
         (16, 16, 16),
@@ -80,25 +103,9 @@ aim_point = False
 frame_index = -1
 time_elapsed = 0
 
-vehicles = []
-for obj in pyrender.Object.objects:
-    if obj.name == "Porsche_911":
-        car = obj
-        car.calculate_smooth_shading_normals()
-        car.shade_smooth = True
-        vehicles.append(car)
-        car.seat = (-0.45, 1.1, 2.0)
-        car.steering_wheel = (-0.45, 0.8, 2.78)
-        car.aboard_range = ((-2.5, 2.5), (-5, 5),(-5, 5))
-        car.velocity = 0.0
-        car.acceleration = 0.0
-        car.set_position(24, 0, 12)
-    elif obj.name == "Steering_Wheel":
-        steering_wheel = obj
-        steering_wheel.z_r_max = 0
-        steering_wheel.culling = False
-        steering_wheel.v_o = steering_wheel.v[:]
-        steering_wheel.vn_o = steering_wheel.vn[:]
+
+
+
 on_car = True
 car_3rd = False
 passed_slope_turning_point = False
@@ -120,20 +127,20 @@ while True:
     # Physics
     if on_car:
         # Turning
-        if car.velocity != 0 and steering_wheel.z_r != 0:
+        if car.velocity != 0 and steering_wheel.roll != 0:
             if car.velocity > 0:
-                degree = -steering_wheel.z_r * time_elapsed
+                degree = -steering_wheel.roll * time_elapsed
             else:
-                degree = steering_wheel.z_r * time_elapsed
-            if degree > 90:
-                degree = 90
-            elif degree < -90:
-                degree = -90
+                degree = steering_wheel.roll * time_elapsed
+            if degree > pi / 2:
+                degree = pi / 2
+            elif degree < -pi / 2:
+                degree = -pi / 2
 
-            car.rotate("y", degree)
+            car.rotate_by(yaw = degree)
             cam.rotate(yaw = degree)
 
-            theta = -degree * pi / 180
+            theta = -degree
             if car.velocity > 0:
                 car.velocity -= sin(abs(theta)) * 2.5
             else:
@@ -157,19 +164,19 @@ while True:
             )
         
         # Slope
-        if 58 < car.center[2] < 60:
-            if car.x_r == 0 and passed_slope_turning_point == False:
-                car.rotate("x", 15)
+        if 58 < car.z < 60:
+            if car.pitch == 0 and passed_slope_turning_point == False:
+                car.rotate_by(pitch =  15)
                 passed_slope_turning_point = True
-            elif car.x_r == 15 and passed_slope_turning_point == False:
-                car.rotate("x", -15)
+            elif car.pitch == 15 and passed_slope_turning_point == False:
+                car.rotate_by(pitch =  -15)
                 passed_slope_turning_point = True
-        elif 67.464 < car.center[2] < 70:
-            if car.x_r == 0 and passed_slope_turning_point == False:
-                car.rotate("x", 15)
+        elif 67.464 < car.z < 70:
+            if car.pitch == 0 and passed_slope_turning_point == False:
+                car.rotate_by(pitch =  15)
                 passed_slope_turning_point = True
-            elif car.x_r == 15 and passed_slope_turning_point == False:
-                car.rotate("x", -15)
+            elif car.pitch == 15 and passed_slope_turning_point == False:
+                car.rotate_by(pitch =  -15)
                 passed_slope_turning_point = True
         else:
             passed_slope_turning_point = False
@@ -185,32 +192,32 @@ while True:
             car.velocity += friction_a
 
         # Moving
-        if car.center[2] < 60:
+        if car.z < 60:
             y = 0
-        elif 60 <= car.center[2] <= 67.464:
+        elif 60 <= car.z <= 67.464:
             # 2 / 7.74157 = 0.25834552939520017
-            y = 0.25834552939520017 * (car.center[2] - 60)
-        elif car.center[2] < 67.464:
+            y = 0.25834552939520017 * (car.z - 60)
+        elif car.z < 67.464:
             y = 2
             
-        car.set_position(
-            car.center[0] + car.rotation[2][0] * car.velocity * time_elapsed,
+        car.move_to(
+            car.x + car.rotation[2][0] * car.velocity * time_elapsed,
             y,
-            car.center[2] + car.rotation[2][2] * car.velocity * time_elapsed,
+            car.z + car.rotation[2][2] * car.velocity * time_elapsed,
         )
-        steering_wheel.set_position(
-            car.center[0] + car.steering_wheel[0],
+        steering_wheel.move_to(
+            car.x + car.steering_wheel[0],
             y + car.steering_wheel[1],
-            car.center[2] + car.steering_wheel[2],
+            car.z + car.steering_wheel[2],
         )
         if car_3rd:
-            cam.x = car.center[0] - car.rotation[2][0] * 2
-            cam.y = car.center[1] + 4 - car.rotation[2][1]
-            cam.z = car.center[2] - car.rotation[2][2] * 3
+            cam.x = car.x - car.rotation[2][0] * 2
+            cam.y = car.y + 4 - car.rotation[2][1]
+            cam.z = car.z - car.rotation[2][2] * 3
         else:
-            cam.x = car.center[0] + car.seat[0]
-            cam.y = car.center[1] + car.seat[1]
-            cam.z = car.center[2] + car.seat[2]
+            cam.x = car.x + car.seat[0]
+            cam.y = car.y + car.seat[1]
+            cam.z = car.z + car.seat[2]
 
         if high_torque and car.velocity < 2:
             car.acceleration = 10.0
@@ -233,7 +240,7 @@ while True:
             cam.y = 3.75
 
 
-    frame, obj_buffer, _ = pyrender.render(pyrender.Object.objects, pyrender.Light.lights, cam)
+    frame, obj_buffer, _ = pyrender.render(pyrender.Transformation.transformations, pyrender.Light.lights, cam)
     # frame = PARTICLES.add_to_frame(frame, pyrender.Light.lights, cam)
     if show_obj_dir:
         frame = pyrender.add_obj_dir(frame, cam, pyrender.Object.objects)
@@ -252,25 +259,25 @@ while True:
         pyrender.display(frame, show_y)
     print(cam, "\t\t", pyrender.bias_scalar, flush=True)
     print(f"Looking at: {looking_at}        |        Picked Object: {picked_obj.name if picked_obj!= None else 'None':{cam.width}}")
-    print(f"{1/time_elapsed if (time_elapsed:=time() - start) > 0 else 0:.3f}fps  Car: {abs(car.velocity):.3f}m/s     {steering_wheel.z_r_max}          ")
+    print(f"{1/time_elapsed if (time_elapsed:=time() - start) > 0 else 0:.3f}fps  Car: {abs(car.velocity):.3f}m/s     {steering_wheel.roll_max}          ")
     
 
     if control.key_GL == None:
-        x_r = steering_wheel.x_r
-        y_r = steering_wheel.y_r
-        steering_wheel.rotate("y", -y_r)
-        steering_wheel.rotate("x", -x_r)
-        if abs(steering_wheel.z_r) <= steering_wheel.z_r_max % 5:
-            steering_wheel.rotate("z", -steering_wheel.z_r)
-            steering_wheel.z_r_max = 0
-        elif steering_wheel.z_r > 0:
-            steering_wheel.rotate("z", -steering_wheel.z_r_max // 5)
-        elif steering_wheel.z_r < 0:
-            steering_wheel.rotate("z", steering_wheel.z_r_max // 5)
+        pitch = steering_wheel.pitch
+        yaw = steering_wheel.yaw
+        steering_wheel.rotate_by(yaw = -yaw)
+        steering_wheel.rotate_by(pitch =  -pitch)
+        if abs(steering_wheel.roll) <= steering_wheel.roll_max % 5:
+            steering_wheel.rotate_by(roll= -steering_wheel.roll)
+            steering_wheel.roll_max = 0
+        elif steering_wheel.roll > 0:
+            steering_wheel.rotate_by(roll= -steering_wheel.roll_max // 5)
+        elif steering_wheel.roll < 0:
+            steering_wheel.rotate_by(roll= steering_wheel.roll_max // 5)
         else:
-            steering_wheel.z_r_max = 0
-        steering_wheel.rotate("x", x_r)
-        steering_wheel.rotate("y", y_r)
+            steering_wheel.roll_max = 0
+        steering_wheel.rotate_by(pitch =  pitch)
+        steering_wheel.rotate_by(yaw = yaw)
         continue
     else:
         key = control.key_GL
@@ -315,19 +322,9 @@ while True:
         # cam.y -= cam.rotation[0][1] * step
         # cam.z -= cam.rotation[0][2] * step
         if on_car:
-            if abs(steering_wheel.z_r) < 180:
-                steering_wheel.set_position(0, 0, 0)
-                steering_wheel.v = steering_wheel.v_o[:]
-                steering_wheel.vn = steering_wheel.vn_o[:]
-                z_r = steering_wheel.z_r
-                steering_wheel.x_r = 0
-                steering_wheel.y_r = 0
-                steering_wheel.z_r = 0
-                steering_wheel.rotate("z", z_r - 2.5)
-                steering_wheel.z_r_max = abs(steering_wheel.z_r)
-
-                steering_wheel.rotate("x", -30)
-                steering_wheel.rotate("y", car.y_r)
+            if abs(steering_wheel.roll) < 180:
+                steering_wheel.rotate_by(roll= - 2.5)
+                steering_wheel.roll_max = abs(steering_wheel.roll)
                 
         elif on_plane:
             pass
@@ -340,19 +337,9 @@ while True:
         # cam.z += cam.rotation[0][2] * step
         if on_car:
             
-            if abs(steering_wheel.z_r) < 180:
-                steering_wheel.set_position(0, 0, 0)
-                steering_wheel.v = steering_wheel.v_o[:]
-                steering_wheel.vn = steering_wheel.vn_o[:]
-                z_r = steering_wheel.z_r
-                steering_wheel.x_r = 0
-                steering_wheel.y_r = 0
-                steering_wheel.z_r = 0
-                steering_wheel.rotate("z", z_r + 2.5)
-                steering_wheel.z_r_max = abs(steering_wheel.z_r)
-
-                steering_wheel.rotate("x", -30)
-                steering_wheel.rotate("y", car.y_r)
+            if abs(steering_wheel.roll) < 180:
+                steering_wheel.rotate_by(roll= 2.5)
+                steering_wheel.roll_max = abs(steering_wheel.roll)
         elif on_plane:
             pass
         else:
@@ -399,15 +386,15 @@ while True:
         # Get in/on
         for vehicle in vehicles:
             if (
-                vehicle.aboard_range[0][0] < cam.x - vehicle.center[0] < vehicle.aboard_range[0][1] and
-                vehicle.aboard_range[1][0] < cam.y - vehicle.center[1] < vehicle.aboard_range[1][1] and
-                vehicle.aboard_range[2][0] < cam.z - vehicle.center[2] < vehicle.aboard_range[2][1] and
+                vehicle.aboard_range[0][0] < cam.x - vehicle.x < vehicle.aboard_range[0][1] and
+                vehicle.aboard_range[1][0] < cam.y - vehicle.y < vehicle.aboard_range[1][1] and
+                vehicle.aboard_range[2][0] < cam.z - vehicle.z < vehicle.aboard_range[2][1] and
                 not on_car and not on_plane):
                 if vehicle.name == "Porsche_911":
                     on_car = True
-                    cam.x = car.center[0] + car.seat[0]
-                    cam.y = car.center[1] + car.seat[1]
-                    cam.z = car.center[2] + car.seat[2]
+                    cam.x = car.x + car.seat[0]
+                    cam.y = car.y + car.seat[1]
+                    cam.z = car.z + car.seat[2]
                     cam.yaw = 90
                     cam.pitch = 0
                     cam.rotation = car.rotation
