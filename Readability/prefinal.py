@@ -16,8 +16,19 @@ pyrender.Object.default_obj_dir = "models/"
 
 
 
+pyrender.Object.load_obj(pyrender.Object, "models/Final/plane model")
+for obj in pyrender.Object.objects:
+    obj:pyrender.Object
+    obj.set_position(0, 1, 10)
+    if obj.name in ("Air_inlet", "Nozzel"):
+        continue
+    obj.shade_smooth = True
+    obj.calculate_face_normals()
+    obj.calculate_smooth_shading_normals
 pyrender.Object.load_obj(pyrender.Object, "models/Final/Porsche 911")
 pyrender.Object.load_obj(pyrender.Object, "models/Final/Scene")
+
+
 for obj in pyrender.Object.objects:
     if obj.name == "Road_light":
         obj.culling = False

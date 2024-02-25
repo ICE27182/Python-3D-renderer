@@ -221,11 +221,8 @@ class Object:
             obj.face_count = len(obj.faces)
             obj.calculate_face_normals()
             if obj.shade_smooth:
+                obj.calculate_face_normals()
                 obj.calculate_smooth_shading_normals()
-            # If the object does not have uv coordinates, none of
-            # shadow, texture or normal map will apply
-            if obj.faces[0][1] == None:
-                continue
             if obj.mtl != None:
                 if obj.mtl.texture_path != None:
                     obj.hastexture = True
@@ -3578,4 +3575,4 @@ def clear():
 
 
 if __name__ == "__main__":
-    import pymain
+    import prefinal
