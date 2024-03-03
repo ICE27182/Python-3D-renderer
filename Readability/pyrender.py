@@ -61,6 +61,7 @@ class Object:
         self.hastexture = False
         self.hasnormal_map = False
         self.culling = True
+        self.no_lighting = False
         self.x_r = 0.0
         self.y_r = 0.0
         self.z_r = 0.0
@@ -1505,8 +1506,8 @@ def render(objects:list, lights:list, cam:Camera):
                     # calculate the light
                     x3d = (p2 * left[0] + p1 * right[0]) * z3d
                     y3d = (p2 * left[1] + p1 * right[1]) * z3d
-                    u = (p2 * left[3] + p1 * right[3]) * z3d
-                    v = (p2 * left[4] + p1 * right[4]) * z3d
+                    u = (p2 * left[3] + p1 * right[3]) * z3d % 1
+                    v = (p2 * left[4] + p1 * right[4]) * z3d % 1
 
                     color = obj.mtl.texture.pixels[int(v * obj.mtl.texture.height)][int(u * obj.mtl.texture.width)]
                     if obj.hasnormal_map:
@@ -1887,8 +1888,8 @@ def render(objects:list, lights:list, cam:Camera):
                         obj_buffer[y][x] = obj
                     depth_buffer[y][x] = z3d
                     # calculate the light
-                    u = (p2 * left[3] + p1 * right[3]) * z3d
-                    v = (p2 * left[4] + p1 * right[4]) * z3d
+                    u = (p2 * left[3] + p1 * right[3]) * z3d % 1
+                    v = (p2 * left[4] + p1 * right[4]) * z3d % 1
                     frame[y][x] = obj.mtl.texture.pixels[int(v * obj.mtl.texture.height)][int(u * obj.mtl.texture.width)]
         
         # Sorting by y, from lowest to highest in value but from top to bottom in what u see
@@ -2886,15 +2887,26 @@ def render(objects:list, lights:list, cam:Camera):
             #     inside[3][9] = cam.height // 2 - int(inside[3][1] * 10)
 
 
+
             if cam.mode == 0:
-                if obj.hastexture:
-                    rasterize_full(inside[0], inside[1][:], inside[2][:], normal)
-                    if len(inside) == 4:
-                        rasterize_full(inside[1], inside[2], inside[3], normal)
+                if obj.no_lighting:
+                    if obj.hastexture:
+                        texture(inside[0], inside[1][:], inside[2][:])
+                        if len(inside) == 4:
+                            texture(inside[1], inside[2], inside[3])
+                    else:
+                        rasterize_solid(inside[0], inside[1][:], inside[2][:], normal)
+                        if len(inside) == 4:
+                            rasterize_solid(inside[1], inside[2], inside[3], normal)
                 else:
-                    rasterize_solid(inside[0], inside[1][:], inside[2][:], normal)
-                    if len(inside) == 4:
-                        rasterize_solid(inside[1], inside[2], inside[3], normal)
+                    if obj.hastexture:
+                        rasterize_full(inside[0], inside[1][:], inside[2][:], normal)
+                        if len(inside) == 4:
+                            rasterize_full(inside[1], inside[2], inside[3], normal)
+                    else:
+                        rasterize_solid(inside[0], inside[1][:], inside[2][:], normal)
+                        if len(inside) == 4:
+                            rasterize_solid(inside[1], inside[2], inside[3], normal)
             elif cam.mode == 1:
                 rasterize_solid(inside[0][:], inside[1][:], inside[2][:], normal)
                 if len(inside) == 4:
@@ -3533,18 +3545,6 @@ def display(frame, num=False) -> None:
         frame_in_str.append(f"{y:2d}\n" if num else "\n")
     print("".join(frame_in_str), end="\033[0m\033[F")
 
-# def display_original(frame) -> None:
-#     frame_in_str = []
-#     for row in frame:
-#         for pixel in row:
-#             if pixel == (0, 0, 0):
-#                 frame_in_str.append("  ")
-#             else:
-#                 frame_in_str.append(
-#                     f"\033[38;2;{pixel[0]};{pixel[1]};{pixel[2]}m██"
-#                 )
-#         frame_in_str.append("\n")
-#     print("".join(frame_in_str), end="\033[0m\033[F")
 
 def display_gs(frame) -> None:
     # length: 96

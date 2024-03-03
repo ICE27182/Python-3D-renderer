@@ -88,6 +88,7 @@ Use Build-in List
 - hastexture            bool
 - hasnormal_map         bool
 - culling               bool
+- no_lighting           bool
 - v                     [[x, y, z], [...], ...]
 - vt                    [(u, v), (...), ...]
 - vn                    [[x, y, z], [...], ...]

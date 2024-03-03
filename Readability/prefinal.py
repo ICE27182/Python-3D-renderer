@@ -16,12 +16,11 @@ pyrender.Object.default_obj_dir = "models/"
 
 
 
-pyrender.Object.load_obj(pyrender.Object, "models/Final/plane model")
+pyrender.Object.load_obj(pyrender.Object, "models/Final/plane")
 for obj in pyrender.Object.objects:
     obj:pyrender.Object
-    obj.set_position(0, 1, 10)
-    if obj.name in ("Air_inlet", "Nozzel"):
-        continue
+    obj.set_position(42, 3, 73.464)
+    obj.rotate("y", -90)
     obj.shade_smooth = True
     obj.calculate_face_normals()
     obj.calculate_smooth_shading_normals
@@ -44,13 +43,22 @@ for obj in pyrender.Object.objects:
     elif obj.name == "Road_light_pole":
         obj.shade_smooth = True
         obj.calculate_smooth_shading_normals()
+    elif obj.name == "Skybox":
+        obj.no_lighting = True
+    elif "cover" in obj.name:
+        obj.culling = False
+    elif obj.name == "Pedestrian_traffic_light":
+        obj.no_lighting = True
+        obj.culling = False
+    elif obj.name == "Traffic_light":
+        obj.culling = False
         
     
 
-# Porsche 911
-cam = pyrender.Camera(x=22.287827951426433, y=1.75, z=12.827173315035669, yaw=50.0, pitch=-10.0, roll=0.0, width=119, height=60, z_near=0.05, z_far=100.0, fov=90, fxaa=False, obj_buffer=True, mode=0)
 # Steering Wheel
-cam = pyrender.Camera(x=0, y=1.75, z=-2, yaw=90.0, pitch=0.0, roll=0.0, width=119, height=60, z_near=0.05, z_far=256.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
+cam = pyrender.Camera(x=0, y=1.75, z=-2, yaw=90.0, pitch=0.0, roll=0.0, width=119, height=60, z_near=0.05, z_far=600.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
+# Porsche 911
+cam = pyrender.Camera(x=22.287827951426433, y=1.75, z=12.827173315035669, yaw=50.0, pitch=-10.0, roll=0.0, width=119, height=60, z_near=0.05, z_far=600.0, fov=90, fxaa=False, obj_buffer=True, mode=0)
 
 # Sunset
 pyrender.Light.lights.append(
@@ -110,7 +118,7 @@ for obj in pyrender.Object.objects:
         steering_wheel.culling = False
         steering_wheel.v_o = steering_wheel.v[:]
         steering_wheel.vn_o = steering_wheel.vn[:]
-on_car = True
+on_car = False
 car_3rd = False
 passed_slope_turning_point = False
 high_torque = False
