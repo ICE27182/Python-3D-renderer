@@ -811,15 +811,89 @@ class Camera:
 
 
     def get_rotation_mat(self) -> tuple:
+        yaw = -(self.yaw - 90) * pi / 180
+        pitch = -self.pitch * pi / 180
+        roll = self.roll * pi / 180
+        sin_yaw = sin(yaw)
+        cos_yaw = cos(yaw)
+        sin_pitch = sin(pitch)
+        cos_pitch = cos(pitch)
+        sin_roll = sin(roll)
+        cos_roll = cos(roll)
+
+        rotation = (
+                (cos_roll, -sin_roll, 0,),
+                (sin_roll, cos_roll, 0,),
+                (0, 0, 1),
+            )
+        
+        rot = (
+                (1, 0, 0,),
+                (0, cos_pitch, -sin_pitch,),
+                (0, sin_pitch, cos_pitch,),
+            )
+
+        rotation = (
+                (rotation[0][0], rotation[0][1] * rot[1][1] + rotation[0][2] * rot[1][2], rotation[0][1] * rot[2][1] + rotation[0][2] * rot[2][2],),
+                (rotation[1][0], rotation[1][1] * rot[1][1] + rotation[1][2] * rot[1][2], rotation[1][1] * rot[2][1] + rotation[1][2] * rot[2][2],),
+                (rotation[2][0], rotation[2][1] * rot[1][1] + rotation[2][2] * rot[1][2], rotation[2][1] * rot[2][1] + rotation[2][2] * rot[2][2],),
+            )
+        
+        rot = (
+                (cos_yaw, 0, sin_yaw,),
+                (0, 1, 0,),
+                (-sin_yaw, 0, cos_yaw,),
+            )
+        
+        rotation = (
+                (rotation[0][0] * rot[0][0] + rotation[0][2] * rot[0][2], rotation[0][1], rotation[0][0] * rot[2][0] + rotation[0][2] * rot[2][2],),
+                (rotation[1][0] * rot[0][0] + rotation[1][2] * rot[0][2], rotation[1][1], rotation[1][0] * rot[2][0] + rotation[1][2] * rot[2][2],),
+                (rotation[2][0] * rot[0][0] + rotation[2][2] * rot[0][2], rotation[2][1], rotation[2][0] * rot[2][0] + rotation[2][2] * rot[2][2],),
+            )
+        return rotation
+        
         yaw = self.yaw * pi / 180
         pitch = self.pitch * pi / 180
         sin_yaw = sin(yaw)
         cos_yaw = cos(yaw)
         sin_pitch = sin(pitch)
         cos_pitch = cos(pitch)
-        return ((sin_yaw, 0, -cos_yaw,),
-                (-sin_pitch * cos_yaw, cos_pitch, -sin_pitch * sin_yaw),
-                (cos_yaw * cos_pitch, sin_pitch, sin_yaw * cos_pitch,))
+        if self.roll == 0:
+            return ((sin_yaw, 0, -cos_yaw,),
+                    (-sin_pitch * cos_yaw, cos_pitch, -sin_pitch * sin_yaw),
+                    (cos_yaw * cos_pitch, sin_pitch, sin_yaw * cos_pitch,))
+        else:
+            roll = self.roll * pi / 180
+            sin_roll = sin(roll)
+            cos_roll = cos(roll)
+            # rotation = (
+            #     (cos_roll, -sin_roll, 0),
+            #     (sin_roll, cos_roll, 0),
+            #     (0, 0, 1)
+            # )
+            # return (
+            #     (cos_roll, -sin_roll, 0),
+            #     (sin_roll, cos_roll, 0),
+            #     (0, 0, 1),
+            # )
+            return (
+                (
+                    cos_roll * sin_yaw, 
+                    -cos_roll * sin_pitch * cos_yaw - sin_roll * cos_pitch, 
+                    cos_roll * cos_yaw * cos_pitch - sin_roll * sin_pitch,
+                ),
+                (
+                    sin_roll * sin_yaw,
+                    -sin_roll * sin_pitch * cos_yaw + cos_roll * cos_pitch,
+                    sin_roll * cos_yaw * cos_pitch + cos_roll * sin_pitch,
+                ),
+                (
+                    -cos_yaw,
+                    -sin_pitch * sin_yaw,
+                    sin_yaw * cos_pitch,
+                ),
+            )
+            
     
 
     def get_width_and_height(self, 

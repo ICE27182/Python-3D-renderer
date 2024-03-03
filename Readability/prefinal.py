@@ -3,8 +3,7 @@
 import pyrender
 import subprocess
 # import particles
-from winsound import Beep
-from math import sin, cos, pi, sqrt
+from math import sin, cos, pi, sqrt, tan
 import control
 from time import time
 
@@ -17,25 +16,16 @@ pyrender.Object.default_obj_dir = "models/"
 
 
 pyrender.Object.load_obj(pyrender.Object, "models/Final/plane")
-for obj in pyrender.Object.objects:
-    obj:pyrender.Object
-    obj.set_position(42, 3, 73.464)
-    obj.rotate("y", -90)
-    obj.shade_smooth = True
-    obj.calculate_face_normals()
-    obj.calculate_smooth_shading_normals
 pyrender.Object.load_obj(pyrender.Object, "models/Final/Porsche 911")
 pyrender.Object.load_obj(pyrender.Object, "models/Final/Scene")
 
 
 for obj in pyrender.Object.objects:
-    if obj.name == "Road_light":
+    if obj.name in ("Road_light_1", "Road_light_2", "Road_light_3"):
         obj.culling = False
         obj.shadow = False
-    elif "shadow_wall" in obj.name:
+    elif obj.name in ("Appartment_shadow_wall", "Shop_shadow_wall"):
         obj.hidden = True
-    elif obj.name == "Shop":
-        obj.culling = False
     elif obj.name == "Shop_top":
         obj.culling = False
     elif obj.name == "Sun":
@@ -45,20 +35,24 @@ for obj in pyrender.Object.objects:
         obj.calculate_smooth_shading_normals()
     elif obj.name == "Skybox":
         obj.no_lighting = True
-    elif "cover" in obj.name:
+    elif obj.name in ("Pedestrian_traffic_light_traffic_light_cover_1", "Pedestrian_traffic_light_traffic_light_cover_2", "Pedestrian_traffic_light_traffic_light_cover_3", "Pedestrian_traffic_light_traffic_light_cover_4"):
         obj.culling = False
     elif obj.name == "Pedestrian_traffic_light":
         obj.no_lighting = True
-        obj.culling = False
-    elif obj.name == "Traffic_light":
-        obj.culling = False
         
     
 
 # Steering Wheel
 cam = pyrender.Camera(x=0, y=1.75, z=-2, yaw=90.0, pitch=0.0, roll=0.0, width=119, height=60, z_near=0.05, z_far=600.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
 # Porsche 911
-cam = pyrender.Camera(x=22.287827951426433, y=1.75, z=12.827173315035669, yaw=50.0, pitch=-10.0, roll=0.0, width=119, height=60, z_near=0.05, z_far=600.0, fov=90, fxaa=False, obj_buffer=True, mode=0)
+cam = pyrender.Camera(x=22.287827951426433, y=1.75, z=12.827173315035669, yaw=50.0, pitch=-10.0, roll=0.0, width=131, height=66, z_near=0.05, z_far=600.0, fov=90, fxaa=False, obj_buffer=True, mode=0)
+# Starting
+cam = pyrender.Camera(x=14.045889468842741, y=1.75, z=30.730934008959064, yaw=65.0, pitch=15.0, roll=0.0, width=131, height=66, z_near=0.05, z_far=600.0, fov=100, fxaa=False, obj_buffer=True, mode=0)
+# Plane
+cam = pyrender.Camera(x=33.25462876156318, y=3.75, z=71.92420835646186, yaw=65.0, pitch=5.0, roll=0.0, width=131, height=66, z_near=0.05, z_far=600.0, fov=100, fxaa=False, obj_buffer=True, mode=0)
+
+# falling speed
+cam.velocity = 0.0
 
 # Sunset
 pyrender.Light.lights.append(
@@ -76,8 +70,28 @@ pyrender.Light.lights.append(
         (23.1, 6.25, 16.0),
         (16, 16, 16),
         (0, -1, 0),
-        120,
-        2
+        size=120,
+        type=2
+    )
+)
+
+pyrender.Light.lights.append(
+    pyrender.Light(
+        (23.1, 6.25, 31.0),
+        (16, 16, 16),
+        (0, -1, 0),
+        size=120,
+        type=2
+    )
+)
+
+pyrender.Light.lights.append(
+    pyrender.Light(
+        (23.1, 6.25, 46.0),
+        (16, 16, 16),
+        (0, -1, 0),
+        size=120,
+        type=2
     )
 )
 
@@ -101,14 +115,26 @@ time_elapsed = 0
 
 vehicles = []
 for obj in pyrender.Object.objects:
-    if obj.name == "Porsche_911":
+    if obj.name == "Plane":
+        plane = obj
+        plane.calculate_smooth_shading_normals()
+        plane.shade_smooth = True
+        vehicles.append(plane)
+        plane.seat = (0.0, 1.0, -2.0)
+        plane.aboard_range = ((-3.0, 3.0), (-5.0, 5.0),(-7.5, 7.5))
+        plane.velocity = 0.0
+        plane.v0 = plane.v[:]
+        plane.vn0 = plane.vn[:]
+        plane.rotate("y", -90)
+        plane.set_position(32, 3, 73.464)
+    elif obj.name == "Porsche_911":
         car = obj
         car.calculate_smooth_shading_normals()
         car.shade_smooth = True
         vehicles.append(car)
         car.seat = (-0.45, 1.1, 2.0)
         car.steering_wheel = (-0.45, 0.8, 2.78)
-        car.aboard_range = ((-2.5, 2.5), (-5, 5),(-5, 5))
+        car.aboard_range = ((-5.0, 5.0), (-5.0, 5.0),(-7.5, 7.5))
         car.velocity = 0.0
         car.acceleration = 0.0
         car.set_position(24, 0, 12)
@@ -118,13 +144,17 @@ for obj in pyrender.Object.objects:
         steering_wheel.culling = False
         steering_wheel.v_o = steering_wheel.v[:]
         steering_wheel.vn_o = steering_wheel.vn[:]
+
+vehicle_3rd = False
+
 on_car = False
-car_3rd = False
 passed_slope_turning_point = False
 high_torque = False
+
 on_plane = False
 
-cam.velocity = 0.0
+
+pyrender.Light.render_shadow(pyrender.Light.lights, pyrender.Object.objects)
 
 # 8&9 are reserved, because shift+8 is *, which will conflict with that in the numpad,
 # and it's weird if only 8 is disabled so shift + 9 is also now.
@@ -222,7 +252,7 @@ while True:
             y + car.steering_wheel[1],
             car.center[2] + car.steering_wheel[2],
         )
-        if car_3rd:
+        if vehicle_3rd:
             cam.x = car.center[0] - car.rotation[2][0] * 2
             cam.y = car.center[1] + 4 - car.rotation[2][1]
             cam.z = car.center[2] - car.rotation[2][2] * 3
@@ -235,10 +265,29 @@ while True:
             car.acceleration = 10.0
         else:
             car.acceleration = 0.0
+
     elif on_plane:
-        pass
+        distance = plane.velocity * time_elapsed
+        plane.set_position(
+            plane.center[0] + plane.rotation[2][0] * distance,
+            plane.center[1] + plane.rotation[2][1] * distance,
+            plane.center[2] + plane.rotation[2][2] * distance,
+        )
+        if vehicle_3rd:
+            cam.x = plane.center[0] - plane.rotation[2][0] * 8 + plane.rotation[1][0] * 2
+            cam.y = plane.center[1] - plane.rotation[2][1] * 8 + plane.rotation[1][1] * 2
+            cam.z = plane.center[2] - plane.rotation[2][2] * 8 + plane.rotation[1][2] * 2
+        else:
+
+            cam.x = plane.center[0] + plane.seat[0] * plane.rotation[0][0] + plane.seat[1] * plane.rotation[0][1] + plane.seat[2] * plane.rotation[0][2]
+            cam.y = plane.center[1] + plane.seat[0] * plane.rotation[1][0] + plane.seat[1] * plane.rotation[1][1] + plane.seat[2] * plane.rotation[1][2]
+            cam.z = plane.center[2] + plane.seat[0] * plane.rotation[2][0] + plane.seat[1] * plane.rotation[2][1] + plane.seat[2] * plane.rotation[2][2]
     else:
-        cam.y += cam.velocity * time_elapsed
+        distance = cam.velocity * time_elapsed
+        if distance != 0:
+            cam.y += distance
+            cam.x += pyrender.cos(cam.yaw * pyrender.pi / 180) * 2 * time_elapsed
+            cam.z += pyrender.sin(cam.yaw * pyrender.pi / 180) * 2 * time_elapsed
 
         if cam.z < 60.0 and cam.y > 1.75:
             cam.velocity -= 9.81 * time_elapsed
@@ -270,8 +319,9 @@ while True:
     else:
         pyrender.display(frame, show_y)
     print(cam, "\t\t", pyrender.bias_scalar, flush=True)
-    print(f"Looking at: {looking_at}        |        Picked Object: {picked_obj.name if picked_obj!= None else 'None':{cam.width}}")
-    print(f"{1/time_elapsed if (time_elapsed:=time() - start) > 0 else 0:.3f}fps  Car: {abs(car.velocity):.3f}m/s     {steering_wheel.z_r_max}          ")
+    print(cam.rotation, " " * 50, flush=True)
+    # print(f"Looking at: {looking_at}        |        Picked Object: {picked_obj.name if picked_obj!= None else 'None':{cam.width}}")
+    print(f"{1/time_elapsed if (time_elapsed:=time() - start) > 0 else 0:.3f}fps  Speed: {abs(car.velocity) if on_car else (abs(plane.velocity)) if on_plane else step:.3f}m/s     {steering_wheel.z_r_max}          ")
     
 
     if control.key_GL == None:
@@ -303,7 +353,29 @@ while True:
             high_torque = False
             car.acceleration = 4.0 if car.velocity < 20.0 else 0.0
         elif on_plane:
-            pass
+            center = plane.center
+            plane.center = [0, 0, 0]
+            plane.v = plane.v0[:]
+            plane.vn = plane.vn0[:]
+            x_r = plane.x_r
+            y_r = plane.y_r
+            z_r = plane.z_r
+            plane.x_r = 0
+            plane.y_r = 0
+            plane.z_r = 0
+            plane.rotation = (
+                (1, 0, 0),
+                (0, 1, 0),
+                (0, 0, 1)
+            )
+            plane.rotate("z", z_r)
+            plane.rotate("x", x_r - 5)
+            plane.rotate("y", y_r)
+            plane.set_position(*center)
+            cam.pitch = 0
+            cam.roll = 0
+            cam.yaw = 0
+            cam.rotation = plane.rotation
         else:
             cam.x += pyrender.cos(cam.yaw * pyrender.pi / 180) * step * time_elapsed
             cam.z += pyrender.sin(cam.yaw * pyrender.pi / 180) * step * time_elapsed
@@ -323,9 +395,32 @@ while True:
         # cam.y -= cam.rotation[2][1] * step
         # cam.z -= cam.rotation[2][2] * step
         if on_car:
+            high_torque = False
             car.acceleration = -2.0 if car.velocity > -20.0 else 0.0
         elif on_plane:
-            pass
+            center = plane.center
+            plane.center = [0, 0, 0]
+            plane.v = plane.v0[:]
+            plane.vn = plane.vn0[:]
+            x_r = plane.x_r
+            y_r = plane.y_r
+            z_r = plane.z_r
+            plane.x_r = 0
+            plane.y_r = 0
+            plane.z_r = 0
+            plane.rotation = (
+                (1, 0, 0),
+                (0, 1, 0),
+                (0, 0, 1)
+            )
+            plane.rotate("z", z_r)
+            plane.rotate("x", x_r + 5)
+            plane.rotate("y", y_r)
+            plane.set_position(*center)
+            cam.pitch = 0
+            cam.roll = 0
+            cam.yaw = 0
+            cam.rotation = plane.rotation
         else:
             cam.x -= pyrender.cos(cam.yaw * pyrender.pi / 180) * step * time_elapsed
             cam.z -= pyrender.sin(cam.yaw * pyrender.pi / 180) * step * time_elapsed
@@ -349,7 +444,29 @@ while True:
                 steering_wheel.rotate("y", car.y_r)
                 
         elif on_plane:
-            pass
+            center = plane.center
+            plane.center = [0, 0, 0]
+            plane.v = plane.v0[:]
+            plane.vn = plane.vn0[:]
+            x_r = plane.x_r
+            y_r = plane.y_r
+            z_r = plane.z_r
+            plane.x_r = 0
+            plane.y_r = 0
+            plane.z_r = 0
+            plane.rotation = (
+                (1, 0, 0),
+                (0, 1, 0),
+                (0, 0, 1)
+            )
+            plane.rotate("z", z_r)
+            plane.rotate("x", x_r)
+            plane.rotate("y", y_r + 5)
+            plane.set_position(*center)
+            cam.pitch = 0
+            cam.roll = 0
+            cam.yaw = 0
+            cam.rotation = plane.rotation
         else:
             cam.x -= pyrender.cos((cam.yaw - 90) * pyrender.pi / 180) * step * time_elapsed
             cam.z -= pyrender.sin((cam.yaw - 90) * pyrender.pi / 180) * step * time_elapsed
@@ -373,15 +490,98 @@ while True:
                 steering_wheel.rotate("x", -30)
                 steering_wheel.rotate("y", car.y_r)
         elif on_plane:
-            pass
+            center = plane.center
+            plane.center = [0, 0, 0]
+            plane.v = plane.v0[:]
+            plane.vn = plane.vn0[:]
+            x_r = plane.x_r
+            y_r = plane.y_r
+            z_r = plane.z_r
+            plane.x_r = 0
+            plane.y_r = 0
+            plane.z_r = 0
+            plane.rotation = (
+                (1, 0, 0),
+                (0, 1, 0),
+                (0, 0, 1)
+            )
+            plane.rotate("z", z_r)
+            plane.rotate("x", x_r)
+            plane.rotate("y", y_r - 5)
+            plane.set_position(*center)
+            cam.pitch = 0
+            cam.roll = 0
+            cam.yaw = 0
+            cam.rotation = plane.rotation
+
+            
         else:
             cam.x += pyrender.cos((cam.yaw - 90) * pyrender.pi / 180) * step * time_elapsed
             cam.z += pyrender.sin((cam.yaw - 90) * pyrender.pi / 180) * step * time_elapsed
+    
+    elif key == "q" and on_plane:
+        center = plane.center
+        plane.center = [0, 0, 0]
+        plane.v = plane.v0[:]
+        plane.vn = plane.vn0[:]
+        x_r = plane.x_r
+        y_r = plane.y_r
+        z_r = plane.z_r
+        plane.x_r = 0
+        plane.y_r = 0
+        plane.z_r = 0
+        plane.rotation = (
+            (1, 0, 0),
+            (0, 1, 0),
+            (0, 0, 1)
+        )
+        plane.rotate("z", z_r - 5)
+        plane.rotate("x", x_r)
+        plane.rotate("y", y_r)
+        plane.set_position(*center)
+        cam.pitch = 0
+        cam.roll = 0
+        cam.yaw = 0
+        cam.rotation = plane.rotation
+
+    elif key == "e" and on_plane:
+        center = plane.center
+        plane.center = [0, 0, 0]
+        plane.v = plane.v0[:]
+        plane.vn = plane.vn0[:]
+        x_r = plane.x_r
+        y_r = plane.y_r
+        z_r = plane.z_r
+        plane.x_r = 0
+        plane.y_r = 0
+        plane.z_r = 0
+        plane.rotation = (
+            (1, 0, 0),
+            (0, 1, 0),
+            (0, 0, 1)
+        )
+        plane.rotate("z", z_r + 5)
+        plane.rotate("x", x_r)
+        plane.rotate("y", y_r)
+        plane.set_position(*center)
+        cam.pitch = 0
+        cam.roll = 0
+        cam.yaw = 0
+        cam.rotation = plane.rotation
+    
+    
     elif key == "c":
         # cam.x -= cam.rotation[1][0] * step
         # cam.y -= cam.rotation[1][1] * step
         # cam.z -= cam.rotation[1][2] * step
-        cam.y -= step * time_elapsed
+        if on_plane:
+            delta_v = 5 * time_elapsed
+            if plane.velocity <= delta_v:
+                plane.velocity = 0
+            else:
+                plane.velocity -= delta_v
+        elif not on_car:
+            cam.y -= step * time_elapsed
     elif key == " ":
         # cam.x += cam.rotation[1][0] * step
         # cam.y += cam.rotation[1][1] * step
@@ -395,7 +595,7 @@ while True:
             elif car.velocity < -brake_a:
                 car.velocity += brake_a
         elif on_plane:
-            pass
+            plane.velocity += 5 * time_elapsed if plane.velocity < 100 else 0
         else:
             cam.velocity = 4.85
     elif key == "4":
@@ -406,14 +606,30 @@ while True:
         cam.rotate(pitch = step * 2.5)
     elif key == "5":
         cam.rotate(pitch = -step * 2.5)
+    elif key == "7":
+        cam.rotate(roll = -step * 2.5)
+    elif key == "9":
+        cam.rotate(roll = step * 2.5)
+    
+    elif key == "+":
+        cam.fov -= 5 if cam.fov > 10 else 0
+        cam.rendering_plane_z = cam.width * 0.5 / tan(cam.fov * pi / 360)
+    elif key == "-":
+        cam.fov += 5 if cam.fov < 170 else 0
+        cam.rendering_plane_z = cam.width * 0.5 / tan(cam.fov * pi / 360)
+    elif key == "*":
+        cam.fov = 100
+        cam.rendering_plane_z = cam.rendering_plane_z = cam.width * 0.5 / tan(cam.fov * pi / 360)
 
     elif key == "f":
         # Get off
         if on_car or on_plane:
             on_car, on_plane = False, False
             cam.x -= 1
+            cam.y = -1
             car.velocity = 0
             car.acceleration = 0
+            vehicle_3rd = False
             continue
         # Get in/on
         for vehicle in vehicles:
@@ -430,11 +646,20 @@ while True:
                     cam.yaw = 90
                     cam.pitch = 0
                     cam.rotation = car.rotation
-                elif vehicle.name == "CodeUndone":
-                    pass
+                elif vehicle.name == "Plane":
+                    on_plane = True
+                    cam.x = plane.center[0] + plane.seat[0]
+                    cam.y = plane.center[1] + plane.seat[1]
+                    cam.z = plane.center[2] + plane.seat[2]
+                    cam.yaw = 0
+                    cam.pitch = 0
+                    cam.rotation = plane.rotation
     
-    elif key == "q":
-        car_3rd = not car_3rd
+    elif key == "v":
+        if on_plane or on_car:
+            vehicle_3rd = not vehicle_3rd
+            cam.pitch = 0
+            cam.rotate(pitch=-30)
 
     elif key == "F":
         cam.fxaa = not cam.fxaa
