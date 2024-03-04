@@ -24,8 +24,8 @@ pyrender.Object.default_obj_dir = "models/"
 # pyrender.Object.objects[1].calculate_smooth_shading_normals()
 # pyrender.Object.objects[1].shade_smooth = True
 # pyrender.Object.load_obj(pyrender.Object, "models/Crafting_table/Crafting_table")
-
-pyrender.Object.load_obj(pyrender.Object, "models/Final/Porsche 911")
+pyrender.Object.load_obj(pyrender.Object, "E:/Programming/Python/Python-3D-renderer/models/Furniture/Furniture.obj")
+# pyrender.Object.load_obj(pyrender.Object, "models/Final/Porsche 911")
 # for obj in pyrender.Object.objects:
 #     obj.set_position(24, 0, 12)
 # pyrender.Object.load_obj(pyrender.Object, "models/Final/Scene")
@@ -46,13 +46,13 @@ pyrender.Object.load_obj(pyrender.Object, "models/Final/Porsche 911")
 
 
 
-cam = pyrender.Camera(x=0.0, y = 0, z=-8, mode=1, obj_buffer=True,
-                      fxaa=False,
-                      )
+# cam = pyrender.Camera(x=0.0, y = 0, z=-8, mode=1, obj_buffer=True,
+#                       fxaa=False,
+#                       )
 
-cam = pyrender.Camera(x=-28.146239760044658, y=27.85461356722811, z=26.230155650760807, yaw=-45.0, pitch=-25.0, roll=0.0, width=154, height=78, z_near=0.05, z_far=100.0, fov=100, fxaa=False, obj_buffer=True, mode=6)
-cam = pyrender.Camera(x=17.900746916870048, y=14.03502646815646, z=-19.417756945865527, yaw=130.0, pitch=-25.0, roll=0.0, z_near=0.05, z_far=800.0, fov=100, fxaa=False, obj_buffer=True, mode=1)
-cam = pyrender.Camera(x=18.509956849826306, y=1.6113281707861065, z=2.0788881229208043, yaw=60.0, pitch=0.0, roll=0.0, z_near=0.05, z_far=100.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
+# cam = pyrender.Camera(x=-28.146239760044658, y=27.85461356722811, z=26.230155650760807, yaw=-45.0, pitch=-25.0, roll=0.0, width=154, height=78, z_near=0.05, z_far=100.0, fov=100, fxaa=False, obj_buffer=True, mode=6)
+# cam = pyrender.Camera(x=17.900746916870048, y=14.03502646815646, z=-19.417756945865527, yaw=130.0, pitch=-25.0, roll=0.0, z_near=0.05, z_far=800.0, fov=100, fxaa=False, obj_buffer=True, mode=1)
+# cam = pyrender.Camera(x=18.509956849826306, y=1.6113281707861065, z=2.0788881229208043, yaw=60.0, pitch=0.0, roll=0.0, z_near=0.05, z_far=100.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
 
 # Sun
 # cam = pyrender.Camera(x=20.0, y=53.0, z=-49.0, yaw=90, pitch=-30.0, roll=0.0, z_near=0.05, z_far=400.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
@@ -66,38 +66,38 @@ cam = pyrender.Camera(x=18.509956849826306, y=1.6113281707861065, z=2.0788881229
 # Shop shadow wall
 # cam = pyrender.Camera(x=25.157257635129216, y=3.781792359259011, z=16.092293680160843, yaw=-180.0, pitch=-10.0, roll=0.0, width=154, height=80, z_near=0.05, z_far=400.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
 # Walking
-cam = pyrender.Camera(x=27.0, y=1.75, z=27.0, yaw=180, pitch=0, roll=0.0, z_near=0.05, z_far=400.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
-cam = pyrender.Camera(x=13.568108617885507, y=1.75, z=20.88376423897999, yaw=334.0, pitch=8.0, roll=0.0, z_near=0.05, z_far=400.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
+# cam = pyrender.Camera(x=27.0, y=1.75, z=27.0, yaw=180, pitch=0, roll=0.0, z_near=0.05, z_far=400.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
+# cam = pyrender.Camera(x=13.568108617885507, y=1.75, z=20.88376423897999, yaw=334.0, pitch=8.0, roll=0.0, z_near=0.05, z_far=400.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
 
-# Particles
-cam = pyrender.Camera(x=27.280528766180414, y=1.75, z=27.024152598698304, yaw=250.0, pitch=8.0, roll=0.0, z_near=0.05, z_far=400.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
+# # Particles
+# cam = pyrender.Camera(x=27.280528766180414, y=1.75, z=27.024152598698304, yaw=250.0, pitch=8.0, roll=0.0, z_near=0.05, z_far=400.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
 
 # Driving
--0.434, 1.094, 1.887
+# -0.434, 1.094, 1.887
 
 # pyrender.Object.load_obj(pyrender.Object, "Orthographic test")
 # cam = pyrender.Camera(0, 100, 0, yaw=90, pitch=-90.0, roll=0.0, z_near=0.05, z_far=500, fov=90, fxaa=False, obj_buffer=True, mode=0)
 
 # Sunset
-pyrender.Light.lights.append(
-    pyrender.Light(
-        (20.0, 53.0, -48.0),
-        (255 / 512, 121 / 512, 7 / 512,),
-        (0, -0.5, 3**0.5*0.5),
-        type=0
-    )
-)
+# pyrender.Light.lights.append(
+#     pyrender.Light(
+#         (20.0, 53.0, -48.0),
+#         (255 / 512, 121 / 512, 7 / 512,),
+#         (0, -0.5, 3**0.5*0.5),
+#         type=0
+#     )
+# )
 
 # Road Light
-pyrender.Light.lights.append(
-    pyrender.Light(
-        (23.1, 6.25, 16.0),
-        (16, 16, 16),
-        (0, -1, 0),
-        120,
-        2
-    )
-)
+# pyrender.Light.lights.append(
+#     pyrender.Light(
+#         (23.1, 6.25, 16.0),
+#         (16, 16, 16),
+#         (0, -1, 0),
+#         120,
+#         2
+#     )
+# )
 # pyrender.Light.lights.append(
 #     pyrender.Light(
 #         (24.0681, 6.16, 16),
@@ -163,6 +163,33 @@ pyrender.Light.lights.append(
 # )
 # pyrender.Light.lights[-1].shadow_properties = (128, 0.01, 100, 64)
 
+pyrender.Light.lights.append(
+    pyrender.Light(
+        (6, 5, 2),
+        (238 * 2.4, 138 * 2.4, 43 * 2.4,),
+    )
+)
+# x=-2.6842192755654612, y=3.6094236373901367, z=4.945387839223564, yaw=304.0, pitch=-20.0, roll=0.0, width=1920, height=1080, z_near=0.05, z_far=100.0, fov=75, fxaa=False, obj_buffer=True, mode=0
+pyrender.Light.lights.append(
+    pyrender.Light(
+        (0, 50, 0),
+        (0.08, 0.06, 0.05),
+        (0, -1, 0),
+        shadow=False,
+        type = 0
+    )
+)
+pyrender.Light.lights.append(
+    pyrender.Light(
+        (0, 50, 0),
+        (0.5, 0.5, 0.5),
+        (0, 0, -1),
+        type = 0,
+        shadow=False
+    )
+)
+
+
 from msvcrt import getwch
 from time import time
 
@@ -170,7 +197,7 @@ def v_dot_u(v, u):
     return v[0]*u[0] + v[1]*u[1] + v[2]*u[2]
 def len_v(v):
     return pyrender.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
-
+cam = pyrender.Camera(x=-2.6842192755654612, y=3.6094236373901367, z=4.945387839223564, yaw=304.0, pitch=-20.0, roll=0.0, width=74, height=35, z_near=0.05, z_far=100.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
 step = 2
 picked_obj = None
 do_add_light = False
@@ -202,7 +229,7 @@ while True:
     # pyrender.Light.lights[1].shadow = True
 
 
-    print("\033[F" * 900, flush=True)
+    print("\033[F" * 900)
     frame, obj_buffer, _ = pyrender.render(pyrender.Object.objects, pyrender.Light.lights, cam)
     # frame = PARTICLES.add_to_frame(frame, pyrender.Light.lights, cam)
     if do_add_light:

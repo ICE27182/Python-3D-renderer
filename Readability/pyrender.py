@@ -1589,6 +1589,10 @@ def render(objects:list, lights:list, cam:Camera):
                         normal = (2 * normal[0] / 255 - 1,
                                   2 * normal[1] / 255 - 1,
                                   2 * normal[2] / 255 - 1)
+                        normal = (cam.rotation[0][0] * normal[0] + cam.rotation[0][1] * normal[1] + cam.rotation[0][2] * normal[2],
+                                  cam.rotation[1][0] * normal[0] + cam.rotation[1][1] * normal[1] + cam.rotation[1][2] * normal[2],
+                                  cam.rotation[2][0] * normal[0] + cam.rotation[2][1] * normal[1] + cam.rotation[2][2] * normal[2],)
+                        
                     elif obj.shade_smooth:
                         normal = (
                             p2 * left[5] + p1 * right[5],
