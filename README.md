@@ -1,15 +1,22 @@
 # Python-3D-renderer
+## A 3D renderer written completely in Python, without using any 3rd-party libraries
+- Support loading from .obj file
+- Support mesh transformation
+- Support texture
+- Support normal map
+- Support smooth shading
+- Lighting(difused): parallel, spot, point
+- Shadow: shadow mapping
+- Anti-aliasing: FXAA (Not recommanded in low resolution)
 
-## It is a program written in pure Python aiming to render 3D objects with some very basic features.
+## Using
+I just do not want to spend more time on this project, at least for now, so it's pretty messy looking.  
+  
+To use all the classes and funcs, import Readability/pyrender.py and Readability/png.py (I wrote it too and it is required for loading textures and normal maps).  
+You may check Readability/pymain.py and Readability/prefinal.py to have an idea on how to use it.  
+Import Readability/control.py so you can have key input without interupting the real time rendering.  
+You can also try playing around Readability/particles.py. I wrote it initially trying to do the tyndall effect in a kinda primitive way.  
+note.md is a note I took when coding so as to sort out my mind, more or less.  
+  
+Ironically, codes in "Readability" aren't quite readable nor good in performace. At first, I thought I wrote something that was easy to read and understand, and then another version optimized for performance (by putting some functions straight into the code, altering some calculation steps so it takes less multiplications and divisions, copying and pasting code from one loop to get rid of it and its cost on performace and so on)  
 
-Don't ask me why, but I just decided not to use any thirdparty library. Given that it's pure python, it would be extremely slow.  
-But one thing is for sure, you can run it by simply typing ***python main.py*** in your terminal.
-It may not run in some conditions for the lack of the module *mscvrt*, which enables the program to get your keyboard input so as to control the camera and others.
-
-The program runs in terminal and all images you see are text presented by print function.  
-Usually, "█" is used as it's the character that resembles a real pixel the most.  
-But you can use any characters you favor alternatively by replacing all "██" into whatever you want, which should be easy to accomplish with a proper IDE or text editor.  
-Just remember to replace it with something as wide as it, "**", "()" for examples. If you replace it with something narrower, such as "0", the image would be compressed horizontally.
-
-Logic behind the code is mostly based on @javidx9's Code-It-Yourself! 3D Graphics Engine Part
-Here's his youtube profile page: https://www.youtube.com/@javidx9
