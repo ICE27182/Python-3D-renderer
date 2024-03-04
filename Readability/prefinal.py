@@ -37,9 +37,21 @@ for obj in pyrender.Object.objects:
         obj.no_lighting = True
     elif obj.name in ("Pedestrian_traffic_light_traffic_light_cover_1", "Pedestrian_traffic_light_traffic_light_cover_2", "Pedestrian_traffic_light_traffic_light_cover_3", "Pedestrian_traffic_light_traffic_light_cover_4"):
         obj.culling = False
-    elif obj.name == "Pedestrian_traffic_light":
+    elif obj.name == "Pedestrian_traffic_light_1":
+        Pedestrian_traffic_light_1 = obj
         obj.no_lighting = True
-        
+    elif obj.name == "Pedestrian_traffic_light_2":
+        Pedestrian_traffic_light_2 = obj
+        obj.no_lighting = True
+    elif obj.name == "Pedestrian_traffic_light_3":
+        Pedestrian_traffic_light_3 = obj
+        obj.no_lighting = True
+    elif obj.name == "Pedestrian_traffic_light_4":
+        Pedestrian_traffic_light_4 = obj
+        obj.no_lighting = True
+    elif obj.name == "Traffic_light":
+        Traffic_light = obj
+        obj.no_lighting = True     
     
 
 # Steering Wheel
@@ -95,6 +107,27 @@ pyrender.Light.lights.append(
     )
 )
 
+# Runway light
+pyrender.Light.lights.append(
+    pyrender.Light(
+        (36, 2.1, 73.464 + 6),
+        (156 / 8, 220 / 8, 255 / 8),
+        (-4, 1.65, -6.0),
+        size = 75,
+        type=2,
+        shadow=True,
+    )
+)
+pyrender.Light.lights.append(
+    pyrender.Light(
+        (36, 2.1, 73.464 - 6),
+        (156 / 8, 220 / 8, 255 / 8),
+        (-4, 1.65, 6.0),
+        size = 75,
+        type=2,
+        shadow=True,
+    )
+)
 
 
 
@@ -707,6 +740,12 @@ while True:
     # shift + number
     elif key in "!@#$%^&)":
         cam.mode = keyboard_number_lookup[key]
+    
+    elif key == "T":
+        Pedestrian_traffic_light_1.mtl, Pedestrian_traffic_light_2.mtl = Pedestrian_traffic_light_2.mtl, Pedestrian_traffic_light_1.mtl
+        Pedestrian_traffic_light_3.mtl, Pedestrian_traffic_light_4.mtl = Pedestrian_traffic_light_4.mtl, Pedestrian_traffic_light_3.mtl
+        for index in range(len(Traffic_light.vt)):
+            Traffic_light.vt[index] = (Traffic_light.vt[index][0], Traffic_light.vt[index][1] + 0.5)
 
     elif key == "B":
         pyrender.Light.render_shadow(pyrender.Light.lights, pyrender.Object.objects)

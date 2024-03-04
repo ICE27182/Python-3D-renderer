@@ -538,7 +538,7 @@ class Light:
     # 4 half resolition
     # 5 squared half resolution
     shadow_properties = (512, 0.01, 320, 256, 256, 256, 65536)
-    def __init__(self, position, strength=(1, 1, 1), direction=None, size=60, type=1) -> None:
+    def __init__(self, position, strength=(1, 1, 1), direction=None, size=60, type=1, shadow=True) -> None:
         
         if type in (0, 2) and direction == None:
             raise Exception("Parallel light source (type 0) requires direction")
@@ -580,7 +580,7 @@ class Light:
         self.r, self.g, self.b = strength
         self.type = type
         self.hidden = False
-        self.shadow = True
+        self.shadow = shadow
         self.x_in_cam = None
         self.y_in_cam = None
         self.z_in_cam = None
