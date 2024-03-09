@@ -24,7 +24,12 @@ pyrender.Object.default_obj_dir = "models/"
 # pyrender.Object.objects[1].calculate_smooth_shading_normals()
 # pyrender.Object.objects[1].shade_smooth = True
 # pyrender.Object.load_obj(pyrender.Object, "models/Crafting_table/Crafting_table")
-pyrender.Object.load_obj(pyrender.Object, "E:/Programming/Python/Python-3D-renderer/models/Furniture/Furniture.obj")
+pyrender.Object.load_obj(pyrender.Object, "ninetales.obj")
+for obj in pyrender.Object.objects:
+    obj.culling = False
+    obj.shade_smooth = True
+    obj.calculate_face_normals()
+    obj.calculate_smooth_shading_normals()
 # pyrender.Object.load_obj(pyrender.Object, "models/Final/Porsche 911")
 # for obj in pyrender.Object.objects:
 #     obj.set_position(24, 0, 12)
@@ -163,26 +168,41 @@ pyrender.Object.load_obj(pyrender.Object, "E:/Programming/Python/Python-3D-rende
 # )
 # pyrender.Light.lights[-1].shadow_properties = (128, 0.01, 100, 64)
 
-pyrender.Light.lights.append(
-    pyrender.Light(
-        (6, 5, 2),
-        (238 * 2.4, 138 * 2.4, 43 * 2.4,),
-    )
-)
-# x=-2.6842192755654612, y=3.6094236373901367, z=4.945387839223564, yaw=304.0, pitch=-20.0, roll=0.0, width=1920, height=1080, z_near=0.05, z_far=100.0, fov=75, fxaa=False, obj_buffer=True, mode=0
+
+
+# Furniture
+# pyrender.Light.lights.append(
+#     pyrender.Light(
+#         (6, 5, 2),
+#         (238 * 2.4, 138 * 2.4, 43 * 2.4,),
+#     )
+# )
+# # x=-2.6842192755654612, y=3.6094236373901367, z=4.945387839223564, yaw=304.0, pitch=-20.0, roll=0.0, width=1920, height=1080, z_near=0.05, z_far=100.0, fov=75, fxaa=False, obj_buffer=True, mode=0
+# pyrender.Light.lights.append(
+#     pyrender.Light(
+#         (0, 50, 0),
+#         (0.08, 0.06, 0.05),
+#         (0, -1, 0),
+#         shadow=False,
+#         type = 0
+#     )
+# )
+# pyrender.Light.lights.append(
+#     pyrender.Light(
+#         (0, 50, 0),
+#         (0.5, 0.5, 0.5),
+#         (0, 0, -1),
+#         type = 0,
+#         shadow=False
+#     )
+# )
+
+
+# Ninetales
 pyrender.Light.lights.append(
     pyrender.Light(
         (0, 50, 0),
-        (0.08, 0.06, 0.05),
-        (0, -1, 0),
-        shadow=False,
-        type = 0
-    )
-)
-pyrender.Light.lights.append(
-    pyrender.Light(
-        (0, 50, 0),
-        (0.5, 0.5, 0.5),
+        (156/ 200, 220/ 200, 255/ 200),
         (0, 0, -1),
         type = 0,
         shadow=False
@@ -197,8 +217,14 @@ def v_dot_u(v, u):
     return v[0]*u[0] + v[1]*u[1] + v[2]*u[2]
 def len_v(v):
     return pyrender.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
-cam = pyrender.Camera(x=-2.6842192755654612, y=3.6094236373901367, z=4.945387839223564, yaw=304.0, pitch=-20.0, roll=0.0, width=74, height=35, z_near=0.05, z_far=100.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
-step = 2
+cam = pyrender.Camera(
+    x=66.50968812854872, y=100.23916482925415, z=-129.43502305640942, yaw=474.0, pitch=-20.0, roll=0.0, width=141, height=71, z_near=0.05, z_far=1000.0, fov=75, fxaa=False, obj_buffer=True, mode=0
+)
+"""
+x=66.50968812854872, y=100.23916482925415, z=-129.43502305640942, yaw=474.0, pitch=-20.0, roll=0.0, width=1920, height=1080, z_near=0.05, z_far=10000, fov=75, fxaa=True, obj_buffer=True, mode=0
+"""
+
+step = 10
 picked_obj = None
 do_add_light = False
 display_gs = False

@@ -19,7 +19,8 @@ pyrender.Object.load_obj(pyrender.Object, "models/Final/plane")
 pyrender.Object.load_obj(pyrender.Object, "models/Final/Porsche 911")
 pyrender.Object.load_obj(pyrender.Object, "models/Final/Scene")
 
-
+# CodeUndone VSCode
+obj:pyrender.Object
 for obj in pyrender.Object.objects:
     if obj.name in ("Road_light_1", "Road_light_2", "Road_light_3"):
         obj.culling = False
@@ -30,9 +31,6 @@ for obj in pyrender.Object.objects:
         obj.culling = False
     elif obj.name == "Sun":
         obj.culling = False
-    elif obj.name == "Road_light_pole":
-        obj.shade_smooth = True
-        obj.calculate_smooth_shading_normals()
     elif obj.name == "Skybox":
         obj.no_lighting = True
     elif obj.name in ("Pedestrian_traffic_light_traffic_light_cover_1", "Pedestrian_traffic_light_traffic_light_cover_2", "Pedestrian_traffic_light_traffic_light_cover_3", "Pedestrian_traffic_light_traffic_light_cover_4"):
@@ -52,16 +50,19 @@ for obj in pyrender.Object.objects:
     elif obj.name == "Traffic_light":
         Traffic_light = obj
         obj.no_lighting = True     
+    elif obj.name in ("Road_light_pole_1", "Road_light_pole_2", "Road_light_pole_3"):
+        obj.calculate_smooth_shading_normals()
+        obj.shade_smooth = True
     
 
 # Steering Wheel
 cam = pyrender.Camera(x=0, y=1.75, z=-2, yaw=90.0, pitch=0.0, roll=0.0, width=119, height=60, z_near=0.05, z_far=600.0, fov=75, fxaa=False, obj_buffer=True, mode=0)
+# Plane
+cam = pyrender.Camera(x=33.25462876156318, y=3.75, z=71.92420835646186, yaw=65.0, pitch=5.0, roll=0.0, width=131, height=66, z_near=0.05, z_far=600.0, fov=100, fxaa=False, obj_buffer=True, mode=0)
 # Porsche 911
 cam = pyrender.Camera(x=22.287827951426433, y=1.75, z=12.827173315035669, yaw=50.0, pitch=-10.0, roll=0.0, width=131, height=66, z_near=0.05, z_far=600.0, fov=90, fxaa=False, obj_buffer=True, mode=0)
 # Starting
-cam = pyrender.Camera(x=14.045889468842741, y=1.75, z=30.730934008959064, yaw=65.0, pitch=15.0, roll=0.0, width=131, height=66, z_near=0.05, z_far=600.0, fov=100, fxaa=False, obj_buffer=True, mode=0)
-# Plane
-cam = pyrender.Camera(x=33.25462876156318, y=3.75, z=71.92420835646186, yaw=65.0, pitch=5.0, roll=0.0, width=131, height=66, z_near=0.05, z_far=600.0, fov=100, fxaa=False, obj_buffer=True, mode=0)
+cam = pyrender.Camera(x=15.727370100646732, y=1.75, z=32.10324298558674, yaw=533.5439821481705, pitch=0.0, roll=0.0, width=131, height=66, z_near=0.05, z_far=600.0, fov=100, fxaa=False, obj_buffer=True, mode=0)
 
 # falling speed
 cam.velocity = 0.0
@@ -186,9 +187,9 @@ high_torque = False
 
 on_plane = False
 
-
+print("Calculating shadow maps")
 pyrender.Light.render_shadow(pyrender.Light.lights, pyrender.Object.objects)
-
+print("Shadow")
 # 8&9 are reserved, because shift+8 is *, which will conflict with that in the numpad,
 # and it's weird if only 8 is disabled so shift + 9 is also now.
 keyboard_number_lookup={"!":1, "@":2, "#":3, "$":4, "%":5, "^":6, "&":7, ")":0}
@@ -351,9 +352,7 @@ while True:
         pyrender.display_gs(frame)
     else:
         pyrender.display(frame, show_y)
-    print(cam, "\t\t", pyrender.bias_scalar, flush=True)
-    print(cam.rotation, " " * 50, flush=True)
-    # print(f"Looking at: {looking_at}        |        Picked Object: {picked_obj.name if picked_obj!= None else 'None':{cam.width}}")
+    print(cam, "\t\t", flush=True)
     print(f"{1/time_elapsed if (time_elapsed:=time() - start) > 0 else 0:.3f}fps  Speed: {abs(car.velocity) if on_car else (abs(plane.velocity)) if on_plane else step:.3f}m/s     {steering_wheel.z_r_max}          ")
     
 
