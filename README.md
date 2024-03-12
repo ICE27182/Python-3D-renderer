@@ -16,11 +16,13 @@ To use all the classes and funcs, import pyrender.py.
 
 You may check pymain.py and prefinal.py to have an idea on how to use it.  
 Import control.py so you can have key input without interupting the real time rendering.  
+There is a command system in these two files, with which you may run a basic 
+benchmarking, take a screenshot (and store it in bmp), or change many other things
+for debugging. For more details, check the code.
 
 Important: If you find the image shaking(or whatever, just werid), press r(not R).
 
 You can also try playing around particles.py. I wrote it initially trying to do the tyndall effect in a kinda primitive way.  
-note.md is a note I took when coding so as to sort out my mind, more or less.  
   
 You may get confused with the code when checking pyrenderer.py. To optimized for performance, I replace many parts of code that could have been written with 
 functions or loops with hardcode. Also, to remove some of the if statements that do not necessarily have to run again and again during rendering, I put those statements

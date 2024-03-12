@@ -1,6 +1,4 @@
 import threading, msvcrt
-from time import sleep
-from winsound import Beep
 def take_key():
     global key_GL, command_mode_GL
     while True:

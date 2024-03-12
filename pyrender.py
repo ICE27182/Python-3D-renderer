@@ -767,8 +767,8 @@ class Camera:
                  x=0, y=0, z=0, 
                  yaw=90, pitch=0, roll=0,
                  width=None, height=None,
-                 z_near=0.05, z_far=100,
-                 fov=75,
+                 z_near=0.05, z_far=255,
+                 fov=90,
                  fxaa=False,
                  obj_buffer = True,
                  mode=0,
@@ -799,7 +799,7 @@ class Camera:
 
     def __str__(self):
         return (f"{self.x:.3f}, {self.y:.3f}, {self.z:.3f}  |  " + 
-                f"{self.yaw:.3f}, {self.pitch:.3f}, {self.roll:.3f}")
+                f"{(self.yaw + 180) % 360 - 180:.3f}, {(self.pitch + 180) % 360 - 180 :.3f}, {(self.roll + 180) % 360 - 180:.3f}")
 
 
     def stat(self) -> str:
@@ -1216,7 +1216,7 @@ def render(objects:list, lights:list, cam:Camera):
                     # calculate the light
                     x3d = (p2 * left[0] + p1 * right[0]) * z3d
                     y3d = (p2 * left[1] + p1 * right[1]) * z3d
-                    if obj.shade_smooth:
+                    if obj.shade_smooth and cam.mode <= 1:
                         normal = (
                             p2 * left[5] + p1 * right[5],
                             p2 * left[6] + p1 * right[6],
@@ -1279,7 +1279,7 @@ def render(objects:list, lights:list, cam:Camera):
             for y in range(y_start, y_end):
                 m1 = (y - A[9]) / (C[9] - A[9])
                 m2 = 1 - m1
-                if obj.shade_smooth:
+                if obj.shade_smooth and cam.mode <= 1:
                     # x, y, z, u, v, sx, sy, sz
                     left = (m2 * A[0] + m1 * C[0], 
                             m2 * A[1] + m1 * C[1], 
@@ -1355,7 +1355,7 @@ def render(objects:list, lights:list, cam:Camera):
             for y in range(y_start, y_end):
                 m1 = (y - A[9]) / (B[9] - A[9])
                 m2 = 1 - m1
-                if obj.shade_smooth:
+                if obj.shade_smooth and cam.mode <= 1:
                     # x, y, z, u, v, sx, sy, sz
                     left = (m2 * A[0] + m1 * B[0], 
                             m2 * A[1] + m1 * B[1], 
@@ -1428,7 +1428,7 @@ def render(objects:list, lights:list, cam:Camera):
                 m2 = 1 - m1
                 n1 = (y - A[9]) / (C[9] - A[9])
                 n2 = 1 - n1
-                if obj.shade_smooth:
+                if obj.shade_smooth and cam.mode <= 1:
                     # x, y, z, u, v, sx, sy, sz
                     left = (m2 * A[0] + m1 * B[0], 
                             m2 * A[1] + m1 * B[1], 
@@ -1498,7 +1498,7 @@ def render(objects:list, lights:list, cam:Camera):
                 m2 = 1 - m1
                 n1 = (y - A[9]) / (C[9] - A[9])
                 n2 = 1 - n1
-                if obj.shade_smooth:
+                if obj.shade_smooth and cam.mode <= 1:
                     # x, y, z, u, v, sx, sy, sz
                     left = (n2 * A[0] + n1 * C[0], 
                             n2 * A[1] + n1 * C[1], 
@@ -3621,12 +3621,8 @@ def display(frame, num=False) -> None:
 
 
 def display_gs(frame) -> None:
-    # length: 96
-    palette = """ .`:,;'_^"\></-!~=)(|j?}{ ][ti+l7v1%yrfcJ32uIC$zwo96sngaT5qpkYVOL40&mG8*xhedbZUSAQPFDXWK#RNEHBM@"""
-    # length: 10
-    palette = """ .:-=+*#%@"""
     # length: 70
-    palette = """ .'`^",:;Il!i><~+_-?][}{1)(|\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"""
+    palette = r""" .'`^",:;Il!i><~+_-?][}{1)(|\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"""
     length = len(palette)
     frame_in_str = []
     for row in frame:
