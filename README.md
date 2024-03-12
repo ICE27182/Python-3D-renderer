@@ -1,15 +1,31 @@
 # Python-3D-renderer
+## A 3D renderer written completely in Python, without using any 3rd-party libraries
+- Support loading from .obj file
+- Support mesh transformation
+- Support texture
+- Support normal map
+- Support smooth shading
+- Lighting(difused): parallel, spot, point
+- Shadow: shadow mapping
+- Anti-aliasing: FXAA (Not recommanded in low resolution)
 
-## It is a program written in pure Python aiming to render 3D objects with some very basic features.
+## Using
+I just do not want to spend more time on this project, at least for now, so the code has a pretty messy looking.  
+  
+To use all the classes and funcs, import pyrender.py.  
 
-Don't ask me why, but I just decided not to use any thirdparty library. Given that it's pure python, it would be extremely slow.  
-But one thing is for sure, you can run it by simply typing ***python main.py*** in your terminal.
-It may not run in some conditions for the lack of the module *mscvrt*, which enables the program to get your keyboard input so as to control the camera and others.
+You may check pymain.py and prefinal.py to have an idea on how to use it.  
+Import control.py so you can have key input without interupting the real time rendering.  
 
-The program runs in terminal and all images you see are text presented by print function.  
-Usually, "█" is used as it's the character that resembles a real pixel the most.  
-But you can use any characters you favor alternatively by replacing all "██" into whatever you want, which should be easy to accomplish with a proper IDE or text editor.  
-Just remember to replace it with something as wide as it, "**", "()" for examples. If you replace it with something narrower, such as "0", the image would be compressed horizontally.
+Important: If you find the image shaking(or whatever, just werid), press r(not R).
 
-Logic behind the code is mostly based on @javidx9's Code-It-Yourself! 3D Graphics Engine Part
-Here's his youtube profile page: https://www.youtube.com/@javidx9
+You can also try playing around particles.py. I wrote it initially trying to do the tyndall effect in a kinda primitive way.  
+note.md is a note I took when coding so as to sort out my mind, more or less.  
+  
+You may get confused with the code when checking pyrenderer.py. To optimized for performance, I replace many parts of code that could have been written with 
+functions or loops with hardcode. Also, to remove some of the if statements that do not necessarily have to run again and again during rendering, I put those statements
+at the very beginning of the function, leading to several parts looking alike and
+kinda redundant.  
+The code is pretty messy indeed and not very well commented. I just think I've spent
+too much time on this "meanless" project and decided to end it. Therefore, unfortunately, there is unlikely to be a major update for a long time.
+
