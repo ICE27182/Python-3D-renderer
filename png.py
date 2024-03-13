@@ -112,13 +112,13 @@ class Png:
         chunk_length = Png.get_chunk_length(image_bytes, chunk_starting_index)
         # Check if the crc value calculated according to the chunk
         if (crc32(image_bytes[chunk_starting_index+4:chunk_starting_index+8+chunk_length]) !=
-            int.from_bytes(image_bytes[chunk_starting_index+chunk_length+8:chunk_starting_index+chunk_length+12])
+            int.from_bytes(image_bytes[chunk_starting_index+chunk_length+8:chunk_starting_index+chunk_length+12], byteorder="big")
             ):
             raise Exception("CRC Failed")
 
 
     def get_chunk_length(image_bytes:bytes, chunk_starting_index:int) -> int:
-        return int.from_bytes(image_bytes[chunk_starting_index:chunk_starting_index+4])
+        return int.from_bytes(image_bytes[chunk_starting_index:chunk_starting_index+4], byteorder="big")
 
 
     def decode(self, image_path) -> None:
@@ -158,8 +158,8 @@ class Png:
         if self.crc == True:
             Png.check_crc(self.bin, 8)
 
-        self.width = int.from_bytes(self.bin[16:20])
-        self.height = int.from_bytes(self.bin[20:24])
+        self.width = int.from_bytes(self.bin[16:20], byteorder="big")
+        self.height = int.from_bytes(self.bin[20:24], byteorder="big")
         # Ranging in 1, 2, 4, 8, 16
         self.bit_depth = self.bin[24]
         # Ranging in 0, 2, 3, 4, 6
@@ -387,9 +387,9 @@ class Png:
                                    for value in row])
                 elif self.bit_depth == 16:
                     pixels.append([
-                                    [int.from_bytes(row[i*2:i*2+2]),
-                                     int.from_bytes(row[i*2:i*2+2]),
-                                     int.from_bytes(row[i*2:i*2+2]),
+                                    [int.from_bytes(row[i*2:i*2+2], byteorder="big"),
+                                     int.from_bytes(row[i*2:i*2+2], byteorder="big"),
+                                     int.from_bytes(row[i*2:i*2+2], byteorder="big"),
                                      Png.default_alpha]
                                    for i in range(len(row) // 2)
                                    ])
@@ -415,8 +415,8 @@ class Png:
                 for row in rows:
                     new_row = []
                     for byte_index in range(0, self.width * 4, 4):
-                        v = int.from_bytes(row[byte_index : byte_index + 2])
-                        a = int.from_bytes(row[byte_index + 2: byte_index + 4])
+                        v = int.from_bytes(row[byte_index : byte_index + 2], byteorder="big")
+                        a = int.from_bytes(row[byte_index + 2: byte_index + 4], byteorder="big")
                         new_row.append([v, v, v, a])
                     pixels.append(new_row)
         # RGB-alpha
@@ -440,7 +440,8 @@ class Png:
                             channels.append(
                                             int.from_bytes(
                                                 row[byte_index + channel:
-                                                    byte_index + channel + 2]
+                                                    byte_index + channel + 2], 
+                                                byteorder="big"
                                                 )
                                             )
                         new_row.append(channels)
@@ -467,7 +468,8 @@ class Png:
                         for channel in range(self.channels):
                             channels.append(
                                 int.from_bytes(
-                                    row[byte_index + channel:byte_index + channel + 2]
+                                    row[byte_index + channel:byte_index + channel + 2],
+                                    byteorder="big"
                                 )
                             )
                         channels.append(Png.default_alpha)
