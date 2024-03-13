@@ -31,3 +31,4 @@ kinda redundant.
 The code is pretty messy indeed and not very well commented. I just think I've spent
 too much time on this "meanless" project and decided to end it. Therefore, unfortunately, there is unlikely to be a major update for a long time.
 
+Python version I was using while coding: 3.11.4
