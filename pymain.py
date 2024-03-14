@@ -239,16 +239,16 @@ while True:
         frame = pyrender.fxaa(frame, channel=0)
     if aim_point:
         frame[cam.height//2][cam.width//2] = (156, 220, 255)
-    looking_at = obj_buffer[cam.height//2][cam.width//2] if obj_buffer != None else None
+    looking_at = obj_buffer[cam.height//2][cam.width//2] if obj_buffer is not None else None
     if display_gs:
         pyrender.display_gs(frame)
     else:
         pyrender.display(frame, show_y)
     print(cam, "\t\t", pyrender.bias_scalar)
-    print(f"Looking at: {looking_at}        |        Picked Object: {picked_obj.name if picked_obj!= None else 'None':{cam.width}}",)
+    print(f"Looking at: {looking_at}        |        Picked Object: {picked_obj.name if picked_obj is not None else 'None':{cam.width}}",)
     print(f"{1/time_elapsed if (time_elapsed:=time() - start) > 0 else 0:.3f}fps")
     
-    if control.key_GL == None:
+    if control.key_GL is None:
         continue
     else:
         key = control.key_GL
@@ -329,21 +329,21 @@ while True:
         pyrender.png.Png.write_as_bmp(frame, "screenshot.bmp")
     
     elif key == "\r":
-        picked_obj = obj_buffer[cam.height//2][cam.width//2] if obj_buffer != None else None
+        picked_obj = obj_buffer[cam.height//2][cam.width//2] if obj_buffer is not None else None
 
     elif key == "S":
-        if picked_obj != None:
+        if picked_obj is not None:
             picked_obj.shade_smooth = not picked_obj.shade_smooth
             if picked_obj.svn == []:
                 picked_obj.calculate_smooth_shading_normals()
     elif key == "h":
-        if picked_obj != None:
+        if picked_obj is not None:
             picked_obj.hidden = not picked_obj.hidden
     elif key == "H":
         for obj in pyrender.Object.objects:
             obj.hidden = False
     elif key == "t":
-        if picked_obj != None:
+        if picked_obj is not None:
             picked_obj.culling = not picked_obj.culling
 
     
@@ -386,16 +386,16 @@ while True:
                 if len(command) == 2 and command[1].lower() in ("l", "list", "-l", "--list") or len(command) == 1:
                     print("Shadow maps:")
                     for index, light in enumerate(pyrender.Light.lights):
-                        if light.type in (0, 2) and light.shadow_map0 != None:
+                        if light.type in (0, 2) and light.shadow_map0 is not None:
                             print(f"\t- {index}\t{light}")
-                        elif light.type == 1 and light.shadow_map1 != None:
+                        elif light.type == 1 and light.shadow_map1 is not None:
                             print(f"\t- {index}\t{light}")
                             
 
                 elif len(command) == 2 and command[1].isdecimal():
                     light = pyrender.Light.lights[int(command[1])]
                     if light.type in (0, 2):
-                        if light.shadow_map0 != None:
+                        if light.shadow_map0 is not None:
                             pyrender.display(
                                 pyrender.convert_depth_to_frame(
                                     light.shadow_map0, *light.shadow_properties[1:3]
@@ -404,7 +404,7 @@ while True:
                         else:
                             print("Shadow map No Found")
                     elif light.type == 1:
-                        if light.shadow_map1 != None:
+                        if light.shadow_map1 is not None:
                             pyrender.display(
                                 pyrender.convert_depth_to_frame(
                                     light.shadow_map1, *light.shadow_properties[1:3]

@@ -48,7 +48,7 @@ class Png:
         If failed, it will start the decoding procedure, after which it will store the
         self.pixels into a pickle file (only self.pixels is stored) if to_pickle == True
         '''
-        if dir == None:
+        if dir is None:
             dir = Png.default_dir
         # Decide whether to check crc
         self.crc = crc

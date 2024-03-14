@@ -12,7 +12,3 @@ def take_key():
 global key_GL, command_mode_GL
 key_GL, command_mode_GL = None, False
 threading.Thread(target=take_key, daemon=True).start()
-
-# while True:
-#     if key_GL != None:
-#         print(key_GL)

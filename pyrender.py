@@ -84,7 +84,7 @@ class Object:
         
         """
         dir = dir.replace("\\", "/") if type(dir) == str else None
-        if dir == None:
+        if dir is None:
             dir = Object.default_obj_dir
         elif not dir.endswith("/") and dir != "":
             dir += "/"
@@ -220,11 +220,11 @@ class Object:
             if obj.shade_smooth:
                 obj.calculate_face_normals()
                 obj.calculate_smooth_shading_normals()
-            if obj.mtl != None:
-                if obj.mtl.texture_path != None:
+            if obj.mtl is not None:
+                if obj.mtl.texture_path is not None:
                     obj.hastexture = True
                     
-                if obj.mtl.normal_map != None:
+                if obj.mtl.normal_map is not None:
                     obj.hasnormal_map = True
         print(f"{file} has finished loading\n")
     
@@ -241,7 +241,7 @@ class Object:
         Check whether obj.faces stores the normal or not
         If not, it will go over every face and calculate the normal
         """
-        if self.faces[0][2] != None:
+        if self.faces[0][2] is not None:
             return
         for face in self.faces:
             v = (self.v[face[0][2]][0] - self.v[face[0][0]][0],
@@ -271,7 +271,7 @@ class Object:
             # transformed_vecs = [(x1, x2, ...), (y1, y2, ...), (z1, z2, ...)]
             transformed_vecs = tuple(zip(*tuple(zip(*vectors))[0]))
             return normalize_v3d((sum(transformed_vecs[0]), sum(transformed_vecs[1]), sum(transformed_vecs[2])))
-        if self.faces[0][2] == None:
+        if self.faces[0][2] is None:
             self.calculate_face_normals()
         # v_vn = {v: [([nx, ny, nz], face_index, vertex_index_in_a_face), (...)], 
         #         v: [(...), ...], 
@@ -536,7 +536,7 @@ class Light:
     shadow_properties = (512, 0.01, 320, 256, 256, 256, 65536)
     def __init__(self, position, strength=(1, 1, 1), direction=None, size=60, type=1, shadow=True) -> None:
         
-        if type in (0, 2) and direction == None:
+        if type in (0, 2) and direction is None:
             raise Exception("Parallel light source (type 0) requires direction")
         if type == 1:
             self.dirx = None
@@ -895,14 +895,14 @@ class Camera:
     def get_width_and_height(self, 
                              width=None, height=None, 
                              width_reserved=2, height_reserved=4) -> tuple:
-        if width == height == None:
+        if width == height is None:
             width, height = get_terminal_size()
             width = width // 2 - 2 * width_reserved
             height = height - height_reserved
-        elif width == None:
+        elif width is None:
             width, _ = get_terminal_size()
             width = width // 2 - 2 * width_reserved
-        elif height == None:
+        elif height is None:
             _, height = get_terminal_size()
             height = height - height_reserved
         if height <= 0 or width <= 0:
@@ -1062,7 +1062,7 @@ def render(objects:list, lights:list, cam:Camera):
                 continue
 
             if light.shadow and obj.shadow:
-                if light.type == 0 and light.shadow_map0 != None:
+                if light.type == 0 and light.shadow_map0 is not None:
                     x_light = x3d - light.x_in_cam
                     y_light = y3d - light.y_in_cam
                     z_light = z3d - light.z_in_cam
@@ -1077,13 +1077,13 @@ def render(objects:list, lights:list, cam:Camera):
                         bias = (1 - (light.rotation0[2][0] * normal[0] + light.rotation0[2][1] * normal[1] + light.rotation0[2][2] * normal[2])) * bias_scalar
                         if z_light > light.shadow_map0[y2d][x2d] + bias:
                             continue
-                elif light.type == 1 and light.shadow_map1 != None:
+                elif light.type == 1 and light.shadow_map1 is not None:
                     x_light = x3d - light.x_in_cam
                     y_light = y3d - light.y_in_cam
                     z_light = z3d - light.z_in_cam
                     if in_point_light_shadow():
                         continue
-                elif light.type == 2 and light.shadow_map0 != None:
+                elif light.type == 2 and light.shadow_map0 is not None:
                     x_light = x3d - light.x_in_cam
                     y_light = y3d - light.y_in_cam
                     z_light = z3d - light.z_in_cam
@@ -2815,7 +2815,7 @@ def render(objects:list, lights:list, cam:Camera):
             C[0] = cam.rotation[0][0] * Cx + cam.rotation[0][1] * Cy + cam.rotation[0][2] * Cz
             C[1] = cam.rotation[1][0] * Cx + cam.rotation[1][1] * Cy + cam.rotation[1][2] * Cz
             C[2] = cam.rotation[2][0] * Cx + cam.rotation[2][1] * Cy + cam.rotation[2][2] * Cz
-            if A[5] != None:
+            if A[5] is not None:
                 Asnx, Asny, Asnz = A[5], A[6], A[7]
                 Bsnx, Bsny, Bsnz = B[5], B[6], B[7]
                 Csnx, Csny, Csnz = C[5], C[6], C[7]
@@ -2867,12 +2867,12 @@ def render(objects:list, lights:list, cam:Camera):
                          outside[0][1] + t * (inside[0][1] - outside[0][1]),
                          outside[0][2] + t * (inside[0][2] - outside[0][2]),
                         # u, v
-                         outside[0][3] + t * (inside[0][3] - outside[0][3]) if inside[0][3] != None else None,
-                         outside[0][4] + t * (inside[0][4] - outside[0][4]) if inside[0][4] != None else None,
+                         outside[0][3] + t * (inside[0][3] - outside[0][3]) if inside[0][3] is not None else None,
+                         outside[0][4] + t * (inside[0][4] - outside[0][4]) if inside[0][4] is not None else None,
                         # snx, sny, snz
-                         outside[0][5] + t * (inside[0][5] - outside[0][5]) if inside[0][5] != None else None,
-                         outside[0][6] + t * (inside[0][6] - outside[0][6]) if inside[0][6] != None else None,
-                         outside[0][7] + t * (inside[0][7] - outside[0][7]) if inside[0][7] != None else None,
+                         outside[0][5] + t * (inside[0][5] - outside[0][5]) if inside[0][5] is not None else None,
+                         outside[0][6] + t * (inside[0][6] - outside[0][6]) if inside[0][6] is not None else None,
+                         outside[0][7] + t * (inside[0][7] - outside[0][7]) if inside[0][7] is not None else None,
                         # x2d, y2d
                         None, None
                     ]
@@ -2887,12 +2887,12 @@ def render(objects:list, lights:list, cam:Camera):
                          outside[0][1] + t * (inside[1][1] - outside[0][1]),
                          outside[0][2] + t * (inside[1][2] - outside[0][2]),
                         # u, v
-                         outside[0][3] + t * (inside[1][3] - outside[0][3]) if inside[1][3] != None else None,
-                         outside[0][4] + t * (inside[1][4] - outside[0][4]) if inside[1][4] != None else None,
+                         outside[0][3] + t * (inside[1][3] - outside[0][3]) if inside[1][3] is not None else None,
+                         outside[0][4] + t * (inside[1][4] - outside[0][4]) if inside[1][4] is not None else None,
                         # snx, sny, snz
-                         outside[0][5] + t * (inside[1][5] - outside[0][5]) if inside[1][5] != None else None,
-                         outside[0][6] + t * (inside[1][6] - outside[0][6]) if inside[1][6] != None else None,
-                         outside[0][7] + t * (inside[1][7] - outside[0][7]) if inside[1][7] != None else None,
+                         outside[0][5] + t * (inside[1][5] - outside[0][5]) if inside[1][5] is not None else None,
+                         outside[0][6] + t * (inside[1][6] - outside[0][6]) if inside[1][6] is not None else None,
+                         outside[0][7] + t * (inside[1][7] - outside[0][7]) if inside[1][7] is not None else None,
                         # x2d, y2d
                         None, None
                     ]
@@ -2908,12 +2908,12 @@ def render(objects:list, lights:list, cam:Camera):
                          outside[0][1] + t * (inside[0][1] - outside[0][1]),
                          outside[0][2] + t * (inside[0][2] - outside[0][2]),
                         # u, v
-                         outside[0][3] + t * (inside[0][3] - outside[0][3]) if inside[0][3] != None else None,
-                         outside[0][4] + t * (inside[0][4] - outside[0][4]) if inside[0][4] != None else None,
+                         outside[0][3] + t * (inside[0][3] - outside[0][3]) if inside[0][3] is not None else None,
+                         outside[0][4] + t * (inside[0][4] - outside[0][4]) if inside[0][4] is not None else None,
                         # snx, sny, snz
-                         outside[0][5] + t * (inside[0][5] - outside[0][5]) if inside[0][5] != None else None,
-                         outside[0][6] + t * (inside[0][6] - outside[0][6]) if inside[0][6] != None else None,
-                         outside[0][7] + t * (inside[0][7] - outside[0][7]) if inside[0][7] != None else None,
+                         outside[0][5] + t * (inside[0][5] - outside[0][5]) if inside[0][5] is not None else None,
+                         outside[0][6] + t * (inside[0][6] - outside[0][6]) if inside[0][6] is not None else None,
+                         outside[0][7] + t * (inside[0][7] - outside[0][7]) if inside[0][7] is not None else None,
                         # x2d, y2d
                         None, None
                     ]
@@ -2928,12 +2928,12 @@ def render(objects:list, lights:list, cam:Camera):
                          outside[1][1] + t * (inside[0][1] - outside[1][1]),
                          outside[1][2] + t * (inside[0][2] - outside[1][2]),
                         # u, v
-                         outside[1][3] + t * (inside[0][3] - outside[1][3]) if inside[0][3] != None else None,
-                         outside[1][4] + t * (inside[0][4] - outside[1][4]) if inside[0][4] != None else None,
+                         outside[1][3] + t * (inside[0][3] - outside[1][3]) if inside[0][3] is not None else None,
+                         outside[1][4] + t * (inside[0][4] - outside[1][4]) if inside[0][4] is not None else None,
                         # snx, sny, snz
-                         outside[1][5] + t * (inside[0][5] - outside[1][5]) if inside[0][5] != None else None,
-                         outside[1][6] + t * (inside[0][6] - outside[1][6]) if inside[0][6] != None else None,
-                         outside[1][7] + t * (inside[0][7] - outside[1][7]) if inside[0][7] != None else None,
+                         outside[1][5] + t * (inside[0][5] - outside[1][5]) if inside[0][5] is not None else None,
+                         outside[1][6] + t * (inside[0][6] - outside[1][6]) if inside[0][6] is not None else None,
+                         outside[1][7] + t * (inside[0][7] - outside[1][7]) if inside[0][7] is not None else None,
                         # x2d, y2d
                         None, None
                     ]
