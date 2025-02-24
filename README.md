@@ -1,4 +1,7 @@
 # Python-3D-renderer
+## Edit on 2/24/2025
+Since it was a really fun project and I am very happy with all the stars I've got (and the code I wrote before was really horrible), I will make some major changes in the future. However, I've got a lot to do rn so no promises on when I will start.
+
 ## Demonstration
 Youtube: https://youtu.be/_Oo5oqAyLD0?si=9ZLv9QcMqeIAYhDV  
 Bilibili: https://www.bilibili.com/video/BV1UJ4m1h79P  
